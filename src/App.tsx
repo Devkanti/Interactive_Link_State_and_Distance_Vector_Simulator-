@@ -16,6 +16,7 @@ import { TimelineScrubber } from './components/timetravel/TimelineScrubber';
 import { DualRaceView } from './components/race/DualRaceView';
 import { MetricsCollector } from './core/analytics';
 import { ComparativeScoreboard } from './components/analytics';
+import { AlgorithmEducationalInspector } from './components/education';
 import { createDiamondMultiPath } from './core/presets';
 import { GraphSnapshot, NodeId, StateSnapshot } from './core/types';
 import {
@@ -28,6 +29,7 @@ import {
   Columns,
   Monitor,
   BarChart2,
+  BookOpen,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -56,6 +58,7 @@ export const App: React.FC = () => {
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showChaosPanel, setShowChaosPanel] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
+  const [showEduInspector, setShowEduInspector] = useState(false);
   const [activePresetName, setActivePresetName] = useState('Diamond Multi-Path');
 
   const packetTracer = useMemo(() => {
@@ -351,6 +354,15 @@ export const App: React.FC = () => {
         {/* Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
+            className={`btn ${showEduInspector ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowEduInspector(!showEduInspector)}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Step-by-Step Educational Algorithm Inspector"
+          >
+            <BookOpen size={14} color={showEduInspector ? '#fff' : 'var(--accent-emerald)'} /> Algorithm Steps
+          </button>
+
+          <button
             className={`btn ${showScoreboard ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowScoreboard(!showScoreboard)}
             style={{ fontSize: '12px', padding: '6px 12px' }}
@@ -476,6 +488,7 @@ export const App: React.FC = () => {
             onModeChange={setProtocolMode}
             onClose={() => setSelectedNodeId(null)}
             currentTick={currentTick}
+            onOpenEducationalInspector={() => setShowEduInspector(true)}
           />
         )}
 
@@ -552,6 +565,35 @@ export const App: React.FC = () => {
                 metricsCollector={metricsCollector}
                 currentTick={currentTick}
                 onClose={() => setShowScoreboard(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Educational Algorithm Inspector Modal */}
+        {showEduInspector && (
+          <div
+            className="modal-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 320,
+            }}
+            onClick={() => setShowEduInspector(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <AlgorithmEducationalInspector
+                graph={graph}
+                lsrEngine={lsrEngine}
+                dvrEngine={dvrEngine}
+                selectedNodeId={selectedNodeId || 'A'}
+                onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
+                onClose={() => setShowEduInspector(false)}
               />
             </div>
           </div>

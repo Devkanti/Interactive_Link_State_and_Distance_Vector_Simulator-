@@ -198,11 +198,11 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Provide educational walkthrough inspectors explaining exactly how Dijkstra and Bellman-Ford perform calculations at the mathematical level.
 * **Acceptance Criteria**:
-  - [ ] **Dijkstra Step-by-Step Inspector**:
+  - [x] **Dijkstra Step-by-Step Inspector**:
     - For any selected root node, step through the algorithm iteration by iteration.
     - Visually highlight **Visited Set $S$** (finalized nodes in green) and **Unvisited Set $Q$** (candidate frontier in orange).
     - Table showing Tentative Distances $dist[u]$ and Predecessors $prev[u]$ updating row-by-row.
-  - [ ] **Bellman-Ford Relaxation Matrix**:
+  - [x] **Bellman-Ford Relaxation Matrix**:
     - Visual table of the formula $D_x(y) = \min_v \{ c(x,v) + D_v(y) \}$.
     - Highlights which neighbor $v^*$ offered the lower cost path that caused a table update.
 
@@ -213,12 +213,12 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement automated test suites covering algorithm correctness, convergence guarantees, and edge cases.
 * **Acceptance Criteria**:
-  - [ ] Unit tests for Dijkstra on cyclic, acyclic, and disconnected graphs.
-  - [ ] Unit tests for Bellman-Ford convergence on classic 3-node, 5-node, and mesh graphs.
-  - [ ] Tests for Split Horizon & Poison Reverse preventing 2-node routing loops.
-  - [ ] Verification that Count-to-Infinity reaches 16 and marks routes unreachable when Split Horizon is disabled.
-  - [ ] Packet tracer tests verifying loop detection and TTL decrement.
-  - [ ] All tests run and pass via single command (`npm test` / `vitest`).
+  - [x] Unit tests for Dijkstra on cyclic, acyclic, and disconnected graphs.
+  - [x] Unit tests for Bellman-Ford convergence on classic 3-node, 5-node, and mesh graphs.
+  - [x] Tests for Split Horizon & Poison Reverse preventing 2-node routing loops.
+  - [x] Verification that Count-to-Infinity reaches 16 and marks routes unreachable when Split Horizon is disabled.
+  - [x] Packet tracer tests verifying loop detection and TTL decrement.
+  - [x] All tests run and pass via single command (`npm test` / `vitest`).
 
 ---
 

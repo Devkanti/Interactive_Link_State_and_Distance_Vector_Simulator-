@@ -8,6 +8,9 @@ import {
   InFlightDVMessage,
   NeighborVectorTable,
   RoutingLoopInfo,
+  BellmanFordNeighborEval,
+  BellmanFordRelaxationRow,
+  BellmanFordStepExplanation,
 } from './types';
 
 export class DistanceVectorEngine {
@@ -346,6 +349,96 @@ export class DistanceVectorEngine {
     }
 
     return hasChanges;
+  }
+
+  /**
+   * Generates a detailed mathematical explanation of Bellman-Ford relaxation for a router:
+   * D_x(y) = min_v { c(x, v) + D_v(y) }
+   * Useful for educational walkthroughs and step inspectors.
+   */
+  public explainRelaxation(nodeId: NodeId): BellmanFordStepExplanation | undefined {
+    const node = this.graph.getNode(nodeId);
+    if (!node) return undefined;
+
+    const currentTable = this.routingTables.get(nodeId) || {};
+    const allNodeIds = this.graph.getNodes().map((n) => n.id);
+    const activeNeighbors = this.graph.getNeighbors(nodeId, true);
+    const neighborVectorsForNode = this.neighborVectors.get(nodeId) || new Map();
+
+    const rows: BellmanFordRelaxationRow[] = [];
+
+    for (const dest of allNodeIds) {
+      if (dest === nodeId) {
+        rows.push({
+          destination: dest,
+          previousCost: 0,
+          previousNextHop: nodeId,
+          evaluations: [],
+          winningNeighbor: nodeId,
+          winningCost: 0,
+          hasImprovedOrChanged: false,
+        });
+        continue;
+      }
+
+      const prevEntry = currentTable[dest];
+      const prevCost = prevEntry?.cost ?? this.config.infinityThreshold;
+      const prevNextHop = prevEntry?.nextHop ?? null;
+
+      const evaluations: BellmanFordNeighborEval[] = [];
+      let minCost = this.config.infinityThreshold;
+      let winningNeighbor: NodeId | null = null;
+
+      for (const n of activeNeighbors) {
+        const neighborVector = neighborVectorsForNode.get(n.neighborId);
+        const neighborDist =
+          neighborVector?.get(dest) ??
+          (n.neighborId === dest ? 0 : this.config.infinityThreshold);
+        const totalCost = Math.min(n.cost + neighborDist, this.config.infinityThreshold);
+
+        if (totalCost < minCost) {
+          minCost = totalCost;
+          winningNeighbor = n.neighborId;
+        }
+
+        evaluations.push({
+          neighborId: n.neighborId,
+          linkCost: n.cost,
+          neighborReportedDist: neighborDist,
+          totalCost,
+          isWinningNeighbor: false,
+        });
+      }
+
+      // Mark the winning evaluation
+      if (winningNeighbor) {
+        for (const ev of evaluations) {
+          if (ev.neighborId === winningNeighbor) {
+            ev.isWinningNeighbor = true;
+          }
+        }
+      }
+
+      const hasChanged =
+        prevCost !== minCost || prevNextHop !== winningNeighbor;
+
+      rows.push({
+        destination: dest,
+        previousCost: prevCost,
+        previousNextHop: prevNextHop,
+        evaluations,
+        winningNeighbor: minCost < this.config.infinityThreshold ? winningNeighbor : null,
+        winningCost: minCost,
+        hasImprovedOrChanged: hasChanged,
+      });
+    }
+
+    return {
+      nodeId,
+      formula: 'D_x(y) = min_v { c(x, v) + D_v(y) }',
+      infinityThreshold: this.config.infinityThreshold,
+      rows,
+    };
   }
 
   // --- Step & Simulation Tick ---

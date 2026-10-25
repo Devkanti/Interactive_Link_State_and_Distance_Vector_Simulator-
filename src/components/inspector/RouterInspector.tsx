@@ -12,6 +12,7 @@ import {
   Table as TableIcon,
   ShieldCheck,
   Zap,
+  BookOpen,
 } from 'lucide-react';
 
 export type ProtocolMode = 'LSR' | 'DVR';
@@ -25,6 +26,7 @@ interface RouterInspectorProps {
   onModeChange: (mode: ProtocolMode) => void;
   onClose: () => void;
   currentTick: number;
+  onOpenEducationalInspector?: () => void;
 }
 
 export const RouterInspector: React.FC<RouterInspectorProps> = ({
@@ -36,6 +38,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
   onModeChange,
   onClose,
   currentTick,
+  onOpenEducationalInspector,
 }) => {
   const [activeTab, setActiveTab] = useState<'forwarding' | 'protocol'>('forwarding');
 
@@ -121,6 +124,16 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {onOpenEducationalInspector && (
+            <button
+              className="btn btn-secondary btn-icon"
+              title="Open Mathematical Algorithm Inspector"
+              onClick={onOpenEducationalInspector}
+            >
+              <BookOpen size={14} color="var(--accent-cyan)" />
+            </button>
+          )}
+
           <button
             className={`btn ${isCrashed ? 'btn-accent' : 'btn-danger'} btn-icon`}
             title={isCrashed ? 'Recover Router' : 'Crash Router'}
