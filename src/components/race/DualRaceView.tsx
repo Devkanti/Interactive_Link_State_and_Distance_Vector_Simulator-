@@ -13,6 +13,7 @@ import {
   Flame,
   AlertTriangle,
   RotateCcw,
+  BarChart2,
 } from 'lucide-react';
 
 export interface DualRaceViewProps {
@@ -23,6 +24,7 @@ export interface DualRaceViewProps {
   selectedNodeId: NodeId | null;
   onSelectNode: (nodeId: NodeId | null) => void;
   onStepTick: () => void;
+  onOpenScoreboard?: () => void;
 }
 
 export const DualRaceView: React.FC<DualRaceViewProps> = ({
@@ -33,6 +35,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
   selectedNodeId,
   onSelectNode,
   onStepTick,
+  onOpenScoreboard,
 }) => {
   // Subscribe to graph updates so both views re-render when nodes/edges mutate
   const [, setVersion] = useState(0);
@@ -178,6 +181,17 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           >
             <RotateCcw size={12} /> Restore All
           </button>
+
+          {onOpenScoreboard && (
+            <button
+              className="btn btn-primary"
+              onClick={onOpenScoreboard}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
+              title="Open Comparative Metrics Scoreboard"
+            >
+              <BarChart2 size={12} /> Scoreboard
+            </button>
+          )}
         </div>
 
         {/* Right Side: DVR Live Summary */}

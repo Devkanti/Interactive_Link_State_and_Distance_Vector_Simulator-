@@ -14,6 +14,8 @@ import { ChaosPanel } from './components/chaos/ChaosPanel';
 import { PacketTracerBar } from './components/tracer/PacketTracerBar';
 import { TimelineScrubber } from './components/timetravel/TimelineScrubber';
 import { DualRaceView } from './components/race/DualRaceView';
+import { MetricsCollector } from './core/analytics';
+import { ComparativeScoreboard } from './components/analytics';
 import { createDiamondMultiPath } from './core/presets';
 import { GraphSnapshot, NodeId, StateSnapshot } from './core/types';
 import {
@@ -25,6 +27,7 @@ import {
   Flame,
   Columns,
   Monitor,
+  BarChart2,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -39,6 +42,10 @@ export const App: React.FC = () => {
   const lsrEngine = useMemo(() => new LinkStateEngine(graph), [graph]);
   const dvrEngine = useMemo(() => new DistanceVectorEngine(graph), [graph]);
   const chaosEngine = useMemo(() => new ChaosEngine(graph), [graph]);
+  const metricsCollector = useMemo(
+    () => new MetricsCollector(graph, lsrEngine, dvrEngine),
+    [graph, lsrEngine, dvrEngine]
+  );
 
   const [currentTick, setCurrentTick] = useState(0);
   const [maxTick, setMaxTick] = useState(0);
@@ -48,6 +55,7 @@ export const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showChaosPanel, setShowChaosPanel] = useState(false);
+  const [showScoreboard, setShowScoreboard] = useState(false);
   const [activePresetName, setActivePresetName] = useState('Diamond Multi-Path');
 
   const packetTracer = useMemo(() => {
@@ -133,8 +141,9 @@ export const App: React.FC = () => {
     packetTracer.stepTick(nextTick);
 
     const eventDesc = chaosEvents[0]?.description;
+    metricsCollector.sampleTick(nextTick, eventDesc);
     captureSnapshot(nextTick, eventDesc, chaosEvents.length > 0);
-  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, captureSnapshot]);
+  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, metricsCollector, captureSnapshot]);
 
   // Step backward (-1 tick)
   const handleStepBackward = useCallback(() => {
@@ -163,14 +172,16 @@ export const App: React.FC = () => {
       packetTracer.stepTick(tick);
 
       const eventDesc = chaosEvents[0]?.description;
+      metricsCollector.sampleTick(tick, eventDesc);
       captureSnapshot(tick, eventDesc, chaosEvents.length > 0);
     });
-  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, captureSnapshot]);
+  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, metricsCollector, captureSnapshot]);
 
   // Initialize protocol engines & record initial snapshot at tick 0 on mount
   useEffect(() => {
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
+    metricsCollector.sampleTick(0, 'Simulation Initialized');
     captureSnapshot(0, 'Simulation Initialized', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,6 +192,7 @@ export const App: React.FC = () => {
     setActivePresetName(presetName);
     clock.reset();
     ledger.reset();
+    metricsCollector.reset();
     setCurrentTick(0);
     setMaxTick(0);
 
@@ -192,6 +204,7 @@ export const App: React.FC = () => {
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
 
+    metricsCollector.sampleTick(0, `Preset Loaded: ${presetName}`);
     captureSnapshot(0, `Preset Loaded: ${presetName}`, true);
 
     if (snapshot.nodes.length > 0) {
@@ -205,6 +218,7 @@ export const App: React.FC = () => {
   const handleResetSimulation = () => {
     clock.reset();
     ledger.reset();
+    metricsCollector.reset();
     setCurrentTick(0);
     setMaxTick(0);
 
@@ -216,6 +230,7 @@ export const App: React.FC = () => {
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
 
+    metricsCollector.sampleTick(0, 'Simulation Reset');
     captureSnapshot(0, 'Simulation Reset', true);
   };
 
@@ -336,6 +351,15 @@ export const App: React.FC = () => {
         {/* Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
+            className={`btn ${showScoreboard ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowScoreboard(!showScoreboard)}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Open Comparative Metrics Scoreboard"
+          >
+            <BarChart2 size={14} color={showScoreboard ? '#fff' : 'var(--accent-cyan)'} /> Scoreboard
+          </button>
+
+          <button
             className={`btn ${showChaosPanel ? 'btn-danger' : 'btn-secondary'}`}
             onClick={() => setShowChaosPanel(!showChaosPanel)}
             style={{ fontSize: '12px', padding: '6px 12px' }}
@@ -414,6 +438,7 @@ export const App: React.FC = () => {
             selectedNodeId={selectedNodeId}
             onSelectNode={setSelectedNodeId}
             onStepTick={handleStepTick}
+            onOpenScoreboard={() => setShowScoreboard(true)}
           />
         )}
 
@@ -504,6 +529,32 @@ export const App: React.FC = () => {
             onSelectSnapshot={handleLoadSnapshot}
             onClose={() => setShowPresetModal(false)}
           />
+        )}
+
+        {/* Comparative Scoreboard Modal */}
+        {showScoreboard && (
+          <div
+            className="modal-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 300,
+            }}
+            onClick={() => setShowScoreboard(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <ComparativeScoreboard
+                metricsCollector={metricsCollector}
+                currentTick={currentTick}
+                onClose={() => setShowScoreboard(false)}
+              />
+            </div>
+          </div>
         )}
       </main>
     </div>

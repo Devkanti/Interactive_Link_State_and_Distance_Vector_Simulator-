@@ -7,3 +7,4 @@ export * from './dvr';
 export * from './presets';
 export * from './chaos';
 export * from './tracer';
+export * from './analytics';

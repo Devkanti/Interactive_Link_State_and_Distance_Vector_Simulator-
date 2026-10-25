@@ -183,11 +183,11 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Display real-time side-by-side performance metrics comparing LSR and DVR throughout the simulation.
 * **Acceptance Criteria**:
-  - [ ] **Convergence Time Metric**: Number of ticks required for all routing tables to stabilize after initialization or topology change.
-  - [ ] **Control Packet Overhead Metric**: Cumulative count of protocol messages exchanged (LSPs vs DV advertisements).
-  - [ ] **Memory / State Size**: Total database size stored across all routers (LSDB bytes vs Distance Vector bytes).
-  - [ ] **Inconsistency / Loop Duration**: Exact duration (in ticks) where forwarding tables harbored loops or stale routes.
-  - [ ] Real-time convergence comparison line chart (Chart.js / SVG) plotting convergence progress over time.
+  - [x] **Convergence Time Metric**: Number of ticks required for all routing tables to stabilize after initialization or topology change.
+  - [x] **Control Packet Overhead Metric**: Cumulative count of protocol messages exchanged (LSPs vs DV advertisements).
+  - [x] **Memory / State Size**: Total database size stored across all routers (LSDB bytes vs Distance Vector bytes).
+  - [x] **Inconsistency / Loop Duration**: Exact duration (in ticks) where forwarding tables harbored loops or stale routes.
+  - [x] Real-time convergence comparison line chart (Chart.js / SVG) plotting convergence progress over time.
 
 ---
 
