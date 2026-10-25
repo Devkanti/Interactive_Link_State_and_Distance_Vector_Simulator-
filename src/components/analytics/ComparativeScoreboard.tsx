@@ -1,5 +1,6 @@
 import React from 'react';
 import { MetricsCollector } from '../../core/analytics/MetricsCollector';
+import { DisruptionRecoveryRecord } from '../../core/analytics/types';
 import { ConvergenceChart } from './ConvergenceChart';
 import {
   Trophy,
@@ -318,7 +319,7 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {summary.recoveryRecords.slice(0, 10).map((rec) => (
+                {summary.recoveryRecords.slice(0, 10).map((rec: DisruptionRecoveryRecord) => (
                   <tr key={rec.id}>
                     <td>
                       <span className="badge badge-active" style={{ fontSize: '10px' }}>
