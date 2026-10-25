@@ -529,6 +529,50 @@ export class DistanceVectorEngine {
     };
   }
 
+  public exportState(): {
+    routingTables: Record<NodeId, RoutingTable>;
+    neighborVectors: Record<NodeId, Record<NodeId, Record<NodeId, number>>>;
+  } {
+    const nvExport: Record<NodeId, Record<NodeId, Record<NodeId, number>>> = {};
+    for (const [nodeId, nTable] of this.neighborVectors.entries()) {
+      nvExport[nodeId] = {};
+      for (const [neighborId, destMap] of nTable.entries()) {
+        nvExport[nodeId][neighborId] = {};
+        for (const [dest, cost] of destMap.entries()) {
+          nvExport[nodeId][neighborId][dest] = cost;
+        }
+      }
+    }
+    return {
+      routingTables: this.getAllRoutingTables(),
+      neighborVectors: nvExport,
+    };
+  }
+
+  public restoreState(state: {
+    routingTables: Record<NodeId, RoutingTable>;
+    neighborVectors: Record<NodeId, Record<NodeId, Record<NodeId, number>>>;
+  }): void {
+    this.routingTables.clear();
+    for (const [nodeId, table] of Object.entries(state.routingTables)) {
+      this.routingTables.set(nodeId, { ...table });
+    }
+
+    this.neighborVectors.clear();
+    for (const [nodeId, nMap] of Object.entries(state.neighborVectors)) {
+      const neighborTable: NeighborVectorTable = new Map();
+      for (const [neighborId, destMap] of Object.entries(nMap)) {
+        const dMap = new Map<NodeId, number>();
+        for (const [dest, cost] of Object.entries(destMap)) {
+          dMap.set(dest, cost);
+        }
+        neighborTable.set(neighborId, dMap);
+      }
+      this.neighborVectors.set(nodeId, neighborTable);
+    }
+    this.inFlightMessages = [];
+  }
+
   public reset(): void {
     this.messageIdCounter = 0;
     this.metrics = {

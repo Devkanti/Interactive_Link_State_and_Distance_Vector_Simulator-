@@ -49,5 +49,7 @@ export interface StateSnapshot {
   graph: GraphSnapshot;
   routingTables: Record<NodeId, RoutingTable>;
   eventDescription?: string;
+  isEventMarker?: boolean;
+  activePacketsCount?: number;
   metadata?: Record<string, unknown>;
 }

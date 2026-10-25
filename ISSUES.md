@@ -123,10 +123,10 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement an automated fault injection suite to test network resilience and visualize instability under adverse conditions.
 * **Acceptance Criteria**:
-  - [ ] **Random Link Sever**: Randomly severs 1 or more links with configurable probability.
-  - [ ] **Router Crash**: Induces router crash (all incident links dropped, ceases LSP/DV transmission).
-  - [ ] **Metric Jitter / Congestion**: Randomly mutates edge weights by $\pm \Delta$ to simulate dynamic latency changes.
-  - [ ] **Link Flap Generator**: Rapidly cycles a selected link between `UP` and `DOWN` at a configurable interval (e.g., every 2 ticks) to demonstrate route flapping, route dampening, and OSPF hold-down timers.
+  - [x] **Random Link Sever**: Randomly severs 1 or more links with configurable probability.
+  - [x] **Router Crash**: Induces router crash (all incident links dropped, ceases LSP/DV transmission).
+  - [x] **Metric Jitter / Congestion**: Randomly mutates edge weights by $\pm \Delta$ to simulate dynamic latency changes.
+  - [x] **Link Flap Generator**: Rapidly cycles a selected link between `UP` and `DOWN` at a configurable interval (e.g., every 2 ticks) to demonstrate route flapping, route dampening, and OSPF hold-down timers.
 
 ---
 
@@ -135,14 +135,14 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Enable users to inject test data packets into the network while routing is converging or while loops exist, visually showing the packet's path, TTL decrement, and drop animations.
 * **Acceptance Criteria**:
-  - [ ] UI to select **Source Router $S$** and **Destination Router $D$** and click "Send Ping Packet".
-  - [ ] Packet object contains: `(packetId, src, dest, currentHop, ttl = 15, payload)`.
-  - [ ] Animated glowing particle moves across links according to the current router's forwarding table.
-  - [ ] **Loop Detection & TTL Expiry**:
+  - [x] UI to select **Source Router $S$** and **Destination Router $D$** and click "Send Ping Packet".
+  - [x] Packet object contains: `(packetId, src, dest, currentHop, ttl = 15, payload)`.
+  - [x] Animated glowing particle moves across links according to the current router's forwarding table.
+  - [x] **Loop Detection & TTL Expiry**:
     - If forwarding forms a cycle (e.g. $A \to B \to A$), the packet cycles along the loop.
     - Each hop decrements TTL.
     - When TTL reaches 0, animate a red "burst / packet dropped" effect with `ICMP Time Exceeded` notification.
-  - [ ] Success state: Packet reaching destination triggers green checkmark and latency/hop count badge.
+  - [x] Success state: Packet reaching destination triggers green checkmark and latency/hop count badge.
 
 ---
 
@@ -151,14 +151,14 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement a temporal playback toolbar allowing users to pause, step forward, step backward, or scrub back to any historical tick to debug convergence dynamics.
 * **Acceptance Criteria**:
-  - [ ] Player controls: **Play**, **Pause**, **Step Forward (+1 tick)**, **Step Backward (-1 tick)**, **Speed Slider (0.5x, 1x, 2x, 5x)**.
-  - [ ] Interactive timeline scrubber slider spanning from tick $0$ to current tick $T_{max}$.
-  - [ ] Restoring tick $t$ completely restores:
+  - [x] Player controls: **Play**, **Pause**, **Step Forward (+1 tick)**, **Step Backward (-1 tick)**, **Speed Slider (0.5x, 1x, 2x, 5x)**.
+  - [x] Interactive timeline scrubber slider spanning from tick $0$ to current tick $T_{max}$.
+  - [x] Restoring tick $t$ completely restores:
     - Node & edge visual statuses
     - Forwarding tables across all routers
     - LSDB / Distance Vector matrices
     - Active packets in flight
-  - [ ] Visual indicators on timeline showing key events (e.g., "Link B-C Severed at tick 4").
+  - [x] Visual indicators on timeline showing key events (e.g., "Link B-C Severed at tick 4").
 
 ---
 

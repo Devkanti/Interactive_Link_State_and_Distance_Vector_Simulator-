@@ -16,10 +16,13 @@ import {
   Hand,
 } from 'lucide-react';
 
+import { TracePacket } from '../../core/tracer/types';
+
 interface TopologyCanvasProps {
   graph: NetworkGraph;
   selectedNodeId?: NodeId | null;
   onSelectNode?: (nodeId: NodeId | null) => void;
+  activeTracePackets?: TracePacket[];
   readOnly?: boolean;
 }
 
@@ -41,6 +44,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   graph,
   selectedNodeId,
   onSelectNode,
+  activeTracePackets = [],
   readOnly = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -590,6 +594,74 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                     fontWeight="700"
                   >
                     {node.label}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
+          {/* In-Flight Tracer Packets Layer */}
+          {activeTracePackets.map((pkt) => {
+            const currNode = graph.getNode(pkt.currentHop);
+            const nextNode = pkt.nextHop ? graph.getNode(pkt.nextHop) : null;
+            if (!currNode) return null;
+
+            let posX = currNode.x;
+            let posY = currNode.y;
+
+            if (nextNode) {
+              posX = (currNode.x + nextNode.x) / 2;
+              posY = (currNode.y + nextNode.y) / 2;
+            }
+
+            const isCycle = pkt.cycleDetected;
+            const particleColor = isCycle ? 'var(--accent-amber)' : 'var(--accent-cyan)';
+
+            return (
+              <g key={pkt.id} transform={`translate(${posX}, ${posY})`}>
+                {/* Glowing halo */}
+                <circle
+                  r="18"
+                  fill="none"
+                  stroke={particleColor}
+                  strokeWidth="2"
+                  strokeDasharray={isCycle ? '4 4' : undefined}
+                  style={{
+                    filter: `drop-shadow(0 0 10px ${particleColor})`,
+                    opacity: 0.8,
+                  }}
+                />
+                {/* Core particle */}
+                <circle
+                  r="9"
+                  fill={particleColor}
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  style={{
+                    filter: `drop-shadow(0 0 8px ${particleColor})`,
+                  }}
+                />
+                {/* Label badge */}
+                <g transform="translate(0, -20)">
+                  <rect
+                    x="-32"
+                    y="-9"
+                    width="64"
+                    height="18"
+                    rx="4"
+                    fill="rgba(15, 23, 42, 0.95)"
+                    stroke={particleColor}
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="4"
+                    fill="#ffffff"
+                    fontSize="10"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="700"
+                  >
+                    {isCycle ? 'LOOP' : 'TTL'}: {pkt.ttl}
                   </text>
                 </g>
               </g>

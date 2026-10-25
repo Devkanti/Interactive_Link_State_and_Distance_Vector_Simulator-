@@ -1,20 +1,27 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { NetworkGraph } from './core/NetworkGraph';
 import { SimulationClock } from './core/SimulationClock';
+import { StateLedger } from './core/StateLedger';
 import { LinkStateEngine } from './core/lsr/LinkStateEngine';
 import { DistanceVectorEngine } from './core/dvr/DistanceVectorEngine';
+import { ChaosEngine } from './core/chaos/ChaosEngine';
+import { PacketTracer } from './core/tracer/PacketTracer';
 import { TopologyCanvas } from './components/canvas/TopologyCanvas';
 import { PresetModal } from './components/presets/PresetModal';
 import { RouterInspector, ProtocolMode } from './components/inspector/RouterInspector';
 import { SimulationBar } from './components/toolbar/SimulationBar';
+import { ChaosPanel } from './components/chaos/ChaosPanel';
+import { PacketTracerBar } from './components/tracer/PacketTracerBar';
+import { TimelineScrubber } from './components/timetravel/TimelineScrubber';
 import { createDiamondMultiPath } from './core/presets';
-import { GraphSnapshot, NodeId } from './core/types';
+import { GraphSnapshot, NodeId, StateSnapshot } from './core/types';
 import {
   Network,
   RotateCcw,
   Sparkles,
   HelpCircle,
   Layers,
+  Flame,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -23,41 +30,144 @@ export const App: React.FC = () => {
     return new NetworkGraph(createDiamondMultiPath());
   }, []);
 
-  // 2. Engines & Simulation Clock
+  // 2. Engines & Simulation Clock & State Ledger
   const clock = useMemo(() => new SimulationClock(0, 1000), []);
+  const ledger = useMemo(() => new StateLedger(), []);
   const lsrEngine = useMemo(() => new LinkStateEngine(graph), [graph]);
   const dvrEngine = useMemo(() => new DistanceVectorEngine(graph), [graph]);
+  const chaosEngine = useMemo(() => new ChaosEngine(graph), [graph]);
 
   const [currentTick, setCurrentTick] = useState(0);
+  const [maxTick, setMaxTick] = useState(0);
   const [protocolMode, setProtocolMode] = useState<ProtocolMode>('LSR');
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>('A');
   const [showHelp, setShowHelp] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showChaosPanel, setShowChaosPanel] = useState(false);
   const [activePresetName, setActivePresetName] = useState('Diamond Multi-Path');
+
+  const packetTracer = useMemo(() => {
+    return new PacketTracer(graph, (nodeId) => {
+      return protocolMode === 'LSR'
+        ? lsrEngine.getRoutingTable(nodeId)
+        : dvrEngine.getRoutingTable(nodeId);
+    });
+  }, [graph, protocolMode, lsrEngine, dvrEngine]);
+
+  // Keep routing provider synchronized
+  useEffect(() => {
+    packetTracer.setRoutingTableProvider((nodeId) => {
+      return protocolMode === 'LSR'
+        ? lsrEngine.getRoutingTable(nodeId)
+        : dvrEngine.getRoutingTable(nodeId);
+    });
+  }, [packetTracer, protocolMode, lsrEngine, dvrEngine]);
+
+  // Capture current state snapshot into StateLedger
+  const captureSnapshot = useCallback(
+    (tick: number, eventDesc?: string, isMarker = false) => {
+      const activeTables =
+        protocolMode === 'LSR'
+          ? lsrEngine.getAllRoutingTables()
+          : dvrEngine.getAllRoutingTables();
+
+      const snapshot: StateSnapshot = {
+        tick,
+        timestamp: Date.now(),
+        graph: graph.exportSnapshot(),
+        routingTables: activeTables,
+        eventDescription: eventDesc,
+        isEventMarker: isMarker,
+        activePacketsCount: packetTracer.getActivePackets().length,
+        metadata: {
+          lsrState: lsrEngine.exportState(),
+          dvrState: dvrEngine.exportState(),
+          tracerState: packetTracer.exportState(),
+        },
+      };
+
+      ledger.recordSnapshot(snapshot);
+      setMaxTick(ledger.getMaxTick());
+    },
+    [protocolMode, lsrEngine, dvrEngine, graph, packetTracer, ledger]
+  );
+
+  // Restore state from a historical snapshot
+  const restoreSnapshotAtTick = useCallback(
+    (tick: number) => {
+      const snap = ledger.getSnapshot(tick);
+      if (!snap) return;
+
+      clock.pause();
+      graph.importSnapshot(snap.graph);
+
+      if (snap.metadata?.lsrState) {
+        lsrEngine.restoreState(snap.metadata.lsrState as any);
+      }
+      if (snap.metadata?.dvrState) {
+        dvrEngine.restoreState(snap.metadata.dvrState as any);
+      }
+      if (snap.metadata?.tracerState) {
+        packetTracer.restoreState(snap.metadata.tracerState as any);
+      }
+
+      clock.setTick(tick);
+      setCurrentTick(tick);
+    },
+    [ledger, clock, graph, lsrEngine, dvrEngine, packetTracer]
+  );
 
   // Single tick step logic
   const handleStepTick = useCallback(() => {
     const nextTick = clock.step();
     setCurrentTick(nextTick);
+
     graph.handleTickFlapping();
+    const chaosEvents = chaosEngine.stepTick(nextTick);
     lsrEngine.stepTick(nextTick);
     dvrEngine.stepTick(nextTick);
-  }, [clock, graph, lsrEngine, dvrEngine]);
+    packetTracer.stepTick(nextTick);
+
+    const eventDesc = chaosEvents[0]?.description;
+    captureSnapshot(nextTick, eventDesc, chaosEvents.length > 0);
+  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, captureSnapshot]);
+
+  // Step backward (-1 tick)
+  const handleStepBackward = useCallback(() => {
+    if (currentTick <= 0) return;
+    const targetTick = currentTick - 1;
+    restoreSnapshotAtTick(targetTick);
+  }, [currentTick, restoreSnapshotAtTick]);
+
+  // Step forward (+1 tick)
+  const handleStepForward = useCallback(() => {
+    if (currentTick < maxTick) {
+      restoreSnapshotAtTick(currentTick + 1);
+    } else {
+      handleStepTick();
+    }
+  }, [currentTick, maxTick, restoreSnapshotAtTick, handleStepTick]);
 
   // Hook clock onTick event
   useEffect(() => {
     return clock.onTick((tick) => {
       setCurrentTick(tick);
       graph.handleTickFlapping();
+      const chaosEvents = chaosEngine.stepTick(tick);
       lsrEngine.stepTick(tick);
       dvrEngine.stepTick(tick);
-    });
-  }, [clock, graph, lsrEngine, dvrEngine]);
+      packetTracer.stepTick(tick);
 
-  // Initialize protocol engines on mount
+      const eventDesc = chaosEvents[0]?.description;
+      captureSnapshot(tick, eventDesc, chaosEvents.length > 0);
+    });
+  }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, captureSnapshot]);
+
+  // Initialize protocol engines & record initial snapshot at tick 0 on mount
   useEffect(() => {
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
+    captureSnapshot(0, 'Simulation Initialized', true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,12 +176,19 @@ export const App: React.FC = () => {
     graph.importSnapshot(snapshot);
     setActivePresetName(presetName);
     clock.reset();
+    ledger.reset();
     setCurrentTick(0);
+    setMaxTick(0);
 
     lsrEngine.reset();
     dvrEngine.reset();
+    chaosEngine.reset();
+    packetTracer.clearHistory();
+
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
+
+    captureSnapshot(0, `Preset Loaded: ${presetName}`, true);
 
     if (snapshot.nodes.length > 0) {
       setSelectedNodeId(snapshot.nodes[0].id);
@@ -83,11 +200,19 @@ export const App: React.FC = () => {
   // Full reset simulation handler
   const handleResetSimulation = () => {
     clock.reset();
+    ledger.reset();
     setCurrentTick(0);
+    setMaxTick(0);
+
     lsrEngine.reset();
     dvrEngine.reset();
+    chaosEngine.reset();
+    packetTracer.clearHistory();
+
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
+
+    captureSnapshot(0, 'Simulation Reset', true);
   };
 
   return (
@@ -159,12 +284,21 @@ export const App: React.FC = () => {
             Topology: {activePresetName}
           </span>
           <span className="badge badge-active" style={{ fontSize: '10px' }}>
-            Phase 2
+            Phase 3
           </span>
         </div>
 
         {/* Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className={`btn ${showChaosPanel ? 'btn-danger' : 'btn-secondary'}`}
+            onClick={() => setShowChaosPanel(!showChaosPanel)}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Toggle Chaos Monkey & Fault Injector"
+          >
+            <Flame size={14} color={showChaosPanel ? '#fff' : 'var(--accent-rose)'} /> Chaos Monkey
+          </button>
+
           <button
             className="btn btn-primary"
             onClick={() => setShowPresetModal(true)}
@@ -210,7 +344,39 @@ export const App: React.FC = () => {
           graph={graph}
           selectedNodeId={selectedNodeId}
           onSelectNode={setSelectedNodeId}
+          activeTracePackets={packetTracer.getActivePackets()}
         />
+
+        {/* Live Packet Tracer Control Bar */}
+        <PacketTracerBar
+          packetTracer={packetTracer}
+          graph={graph}
+          currentTick={currentTick}
+          onSendPing={handleStepTick}
+        />
+
+        {/* Deterministic Time-Travel Scrubber */}
+        <TimelineScrubber
+          clock={clock}
+          currentTick={currentTick}
+          maxTick={maxTick}
+          history={ledger.getHistory()}
+          onScrubToTick={restoreSnapshotAtTick}
+          onStepForward={handleStepForward}
+          onStepBackward={handleStepBackward}
+          onReset={handleResetSimulation}
+        />
+
+        {/* Chaos Panel */}
+        {showChaosPanel && (
+          <ChaosPanel
+            chaosEngine={chaosEngine}
+            graph={graph}
+            currentTick={currentTick}
+            onClose={() => setShowChaosPanel(false)}
+            onMutation={handleStepTick}
+          />
+        )}
 
         {/* Live Router Inspector Drawer */}
         {selectedNodeId && (
@@ -241,7 +407,7 @@ export const App: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <Sparkles size={16} color="var(--accent-cyan)" />
-              <strong style={{ fontSize: '13px' }}>Canvas Interaction Guide</strong>
+              <strong style={{ fontSize: '13px' }}>Simulation Guide</strong>
             </div>
             <ul
               style={{
@@ -255,19 +421,16 @@ export const App: React.FC = () => {
               }}
             >
               <li>
-                <strong>Inspect Router</strong>: Click any router glyph to open its live Routing Table, LSDB database, and Distance Vector matrix.
+                <strong>Time-Travel Scrubber</strong>: Scrub backward to any historical tick to pinpoint sub-optimal routes or loops.
               </li>
               <li>
-                <strong>Move Nodes</strong>: Click and drag any router to reposition. Incident links re-anchor automatically.
+                <strong>Packet Tracer</strong>: Send a ping from S to D and watch the glowing packet traverse hop-by-hop.
               </li>
               <li>
-                <strong>Connect Routers</strong>: Click the <em>Link Mode</em> button in the bottom toolbar, then click a source router and drag to target.
+                <strong>Chaos Monkey</strong>: Inject link severances, router crashes, or oscillating link flapping.
               </li>
               <li>
-                <strong>Edit Metric (Cost)</strong>: Click on any link's center weight badge to change its value.
-              </li>
-              <li>
-                <strong>Context Menu</strong>: Right-click any router or link to crash, sever, delete, or configure.
+                <strong>Inspect Router</strong>: Click any router glyph to open its active FIB, LSDB, or Distance Vector matrix.
               </li>
             </ul>
           </div>

@@ -5,3 +5,5 @@ export * from './StateLedger';
 export * from './lsr';
 export * from './dvr';
 export * from './presets';
+export * from './chaos';
+export * from './tracer';

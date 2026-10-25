@@ -329,6 +329,54 @@ export class LinkStateEngine {
     return this.lastActivityTick;
   }
 
+  public exportState(): {
+    lsdb: Record<NodeId, Record<NodeId, unknown>>;
+    routingTables: Record<NodeId, RoutingTable>;
+    sequenceNumbers: Record<NodeId, number>;
+  } {
+    const lsdbExport: Record<NodeId, Record<NodeId, unknown>> = {};
+    for (const [nodeId, map] of this.nodeLSDBs.entries()) {
+      lsdbExport[nodeId] = {};
+      for (const [orig, entry] of map.entries()) {
+        lsdbExport[nodeId][orig] = { ...entry, neighbors: [...entry.neighbors] };
+      }
+    }
+    const seqExport: Record<NodeId, number> = {};
+    for (const [nodeId, seq] of this.nodeSequenceNumbers.entries()) {
+      seqExport[nodeId] = seq;
+    }
+    return {
+      lsdb: lsdbExport,
+      routingTables: this.getAllRoutingTables(),
+      sequenceNumbers: seqExport,
+    };
+  }
+
+  public restoreState(state: {
+    lsdb: Record<NodeId, Record<NodeId, unknown>>;
+    routingTables: Record<NodeId, RoutingTable>;
+    sequenceNumbers: Record<NodeId, number>;
+  }): void {
+    this.nodeLSDBs.clear();
+    for (const [nodeId, mapObj] of Object.entries(state.lsdb)) {
+      const map: NodeLSDB = new Map();
+      for (const [orig, entry] of Object.entries(mapObj)) {
+        map.set(orig, entry as any);
+      }
+      this.nodeLSDBs.set(nodeId, map);
+    }
+    this.routingTables.clear();
+    for (const [nodeId, table] of Object.entries(state.routingTables)) {
+      this.routingTables.set(nodeId, { ...table });
+    }
+    this.nodeSequenceNumbers.clear();
+    for (const [nodeId, seq] of Object.entries(state.sequenceNumbers)) {
+      this.nodeSequenceNumbers.set(nodeId, seq);
+    }
+    this.inFlightPackets = [];
+    this.dirtyNodes.clear();
+  }
+
   public reset(): void {
     this.nodeLSDBs.clear();
     this.nodeSequenceNumbers.clear();
