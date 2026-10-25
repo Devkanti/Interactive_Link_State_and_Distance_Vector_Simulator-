@@ -13,6 +13,7 @@ import { SimulationBar } from './components/toolbar/SimulationBar';
 import { ChaosPanel } from './components/chaos/ChaosPanel';
 import { PacketTracerBar } from './components/tracer/PacketTracerBar';
 import { TimelineScrubber } from './components/timetravel/TimelineScrubber';
+import { DualRaceView } from './components/race/DualRaceView';
 import { createDiamondMultiPath } from './core/presets';
 import { GraphSnapshot, NodeId, StateSnapshot } from './core/types';
 import {
@@ -22,6 +23,8 @@ import {
   HelpCircle,
   Layers,
   Flame,
+  Columns,
+  Monitor,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -41,6 +44,7 @@ export const App: React.FC = () => {
   const [maxTick, setMaxTick] = useState(0);
   const [protocolMode, setProtocolMode] = useState<ProtocolMode>('LSR');
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>('A');
+  const [viewLayout, setViewLayout] = useState<'single' | 'race'>('single');
   const [showHelp, setShowHelp] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showChaosPanel, setShowChaosPanel] = useState(false);
@@ -259,33 +263,74 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Center Preset Badge */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'rgba(0, 0, 0, 0.4)',
-            padding: '5px 12px',
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <span
+        {/* Center: View Mode Segment Switch & Preset Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Segmented Layout Toggle: Single vs Dual Race */}
+          <div
             style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: 'var(--accent-cyan)',
-              boxShadow: 'var(--glow-cyan)',
+              display: 'flex',
+              alignItems: 'center',
+              background: 'rgba(0, 0, 0, 0.5)',
+              padding: '3px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--border-subtle)',
             }}
-          />
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Topology: {activePresetName}
-          </span>
-          <span className="badge badge-active" style={{ fontSize: '10px' }}>
-            Phase 3
-          </span>
+          >
+            <button
+              className={`btn ${viewLayout === 'single' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setViewLayout('single')}
+              style={{
+                fontSize: '11px',
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-full)',
+                height: 28,
+              }}
+            >
+              <Monitor size={13} /> Single View
+            </button>
+            <button
+              className={`btn ${viewLayout === 'race' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setViewLayout('race')}
+              style={{
+                fontSize: '11px',
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-full)',
+                height: 28,
+                background: viewLayout === 'race' ? 'linear-gradient(135deg, #0284c7, #9333ea)' : undefined,
+                boxShadow: viewLayout === 'race' ? '0 0 10px rgba(147, 51, 234, 0.4)' : undefined,
+              }}
+            >
+              <Columns size={13} /> Dual Race Mode
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(0, 0, 0, 0.4)',
+              padding: '5px 12px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: 'var(--accent-cyan)',
+                boxShadow: 'var(--glow-cyan)',
+              }}
+            />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Topology: {activePresetName}
+            </span>
+            <span className="badge badge-active" style={{ fontSize: '10px' }}>
+              Phase 4
+            </span>
+          </div>
         </div>
 
         {/* Right Action Buttons */}
@@ -327,33 +372,50 @@ export const App: React.FC = () => {
 
       {/* Main Canvas & Inspector Area */}
       <main style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {/* Simulation Bar */}
-        <SimulationBar
-          clock={clock}
-          lsrEngine={lsrEngine}
-          dvrEngine={dvrEngine}
-          mode={protocolMode}
-          onModeChange={setProtocolMode}
-          onStep={handleStepTick}
-          onReset={handleResetSimulation}
-          currentTick={currentTick}
-        />
+        {viewLayout === 'single' ? (
+          <>
+            {/* Simulation Bar */}
+            <SimulationBar
+              clock={clock}
+              lsrEngine={lsrEngine}
+              dvrEngine={dvrEngine}
+              mode={protocolMode}
+              onModeChange={setProtocolMode}
+              onStep={handleStepTick}
+              onReset={handleResetSimulation}
+              currentTick={currentTick}
+            />
 
-        {/* Interactive Topology Canvas */}
-        <TopologyCanvas
-          graph={graph}
-          selectedNodeId={selectedNodeId}
-          onSelectNode={setSelectedNodeId}
-          activeTracePackets={packetTracer.getActivePackets()}
-        />
+            {/* Interactive Topology Canvas */}
+            <TopologyCanvas
+              graph={graph}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={setSelectedNodeId}
+              activeTracePackets={packetTracer.getActivePackets()}
+              inFlightLSPs={protocolMode === 'LSR' ? lsrEngine.getInFlightPackets() : []}
+              inFlightDVMessages={protocolMode === 'DVR' ? dvrEngine.getInFlightMessages() : []}
+              canvasTheme={protocolMode === 'LSR' ? 'lsr' : 'dvr'}
+            />
 
-        {/* Live Packet Tracer Control Bar */}
-        <PacketTracerBar
-          packetTracer={packetTracer}
-          graph={graph}
-          currentTick={currentTick}
-          onSendPing={handleStepTick}
-        />
+            {/* Live Packet Tracer Control Bar */}
+            <PacketTracerBar
+              packetTracer={packetTracer}
+              graph={graph}
+              currentTick={currentTick}
+              onSendPing={handleStepTick}
+            />
+          </>
+        ) : (
+          <DualRaceView
+            graph={graph}
+            lsrEngine={lsrEngine}
+            dvrEngine={dvrEngine}
+            currentTick={currentTick}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
+            onStepTick={handleStepTick}
+          />
+        )}
 
         {/* Deterministic Time-Travel Scrubber */}
         <TimelineScrubber

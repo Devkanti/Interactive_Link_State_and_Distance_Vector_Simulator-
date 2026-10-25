@@ -17,13 +17,19 @@ import {
 } from 'lucide-react';
 
 import { TracePacket } from '../../core/tracer/types';
+import { InFlightLSPPacket } from '../../core/lsr/types';
+import { InFlightDVMessage } from '../../core/dvr/types';
 
 interface TopologyCanvasProps {
   graph: NetworkGraph;
   selectedNodeId?: NodeId | null;
   onSelectNode?: (nodeId: NodeId | null) => void;
   activeTracePackets?: TracePacket[];
+  inFlightLSPs?: InFlightLSPPacket[];
+  inFlightDVMessages?: InFlightDVMessage[];
+  canvasTheme?: 'default' | 'lsr' | 'dvr';
   readOnly?: boolean;
+  showControls?: boolean;
 }
 
 interface DraggingState {
@@ -45,7 +51,11 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   selectedNodeId,
   onSelectNode,
   activeTracePackets = [],
+  inFlightLSPs = [],
+  inFlightDVMessages = [],
+  canvasTheme = 'default',
   readOnly = false,
+  showControls = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -369,7 +379,12 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        background: 'radial-gradient(circle at 50% 50%, #0d1527 0%, #070a12 100%)',
+        background:
+          canvasTheme === 'lsr'
+            ? 'radial-gradient(circle at 50% 50%, #0a182c 0%, #040913 100%)'
+            : canvasTheme === 'dvr'
+            ? 'radial-gradient(circle at 50% 50%, #170d28 0%, #090513 100%)'
+            : 'radial-gradient(circle at 50% 50%, #0d1527 0%, #070a12 100%)',
         cursor: isPanning ? 'grabbing' : connecting ? 'crosshair' : 'default',
         userSelect: 'none',
       }}
@@ -386,16 +401,27 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
       >
         <defs>
           <pattern
-            id="canvas-grid"
+            id={`canvas-grid-${canvasTheme}`}
             width={40 * zoom}
             height={40 * zoom}
             patternUnits="userSpaceOnUse"
             patternTransform={`translate(${pan.x}, ${pan.y})`}
           >
-            <circle cx="2" cy="2" r="1" fill="rgba(255, 255, 255, 0.07)" />
+            <circle
+              cx="2"
+              cy="2"
+              r="1"
+              fill={
+                canvasTheme === 'lsr'
+                  ? 'rgba(56, 189, 248, 0.12)'
+                  : canvasTheme === 'dvr'
+                  ? 'rgba(192, 132, 252, 0.12)'
+                  : 'rgba(255, 255, 255, 0.07)'
+              }
+            />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#canvas-grid)" />
+        <rect width="100%" height="100%" fill={`url(#canvas-grid-${canvasTheme})`} />
       </svg>
 
       {/* Main Graph SVG Scene */}
@@ -667,98 +693,213 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               </g>
             );
           })}
+          {/* In-Flight LSR LSP Packets Layer (Radiating Flooding) */}
+          {inFlightLSPs.map((item) => {
+            const srcNode = graph.getNode(item.sourceNodeId);
+            const tgtNode = graph.getNode(item.targetNodeId);
+            if (!srcNode || !tgtNode) return null;
+
+            const prog = item.progress > 0 ? item.progress : 0.5;
+            const posX = srcNode.x + (tgtNode.x - srcNode.x) * prog;
+            const posY = srcNode.y + (tgtNode.y - srcNode.y) * prog;
+            const color = 'var(--accent-cyan)';
+
+            return (
+              <g key={`lsp-${item.packet.id}-${item.sourceNodeId}-${item.targetNodeId}`} transform={`translate(${posX}, ${posY})`}>
+                {/* Radiating wave */}
+                <circle
+                  r="18"
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="1.5"
+                  style={{
+                    filter: `drop-shadow(0 0 8px ${color})`,
+                    opacity: 0.7,
+                  }}
+                />
+                <circle
+                  r="8"
+                  fill={color}
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+                />
+                <g transform="translate(0, -18)">
+                  <rect
+                    x="-34"
+                    y="-9"
+                    width="68"
+                    height="18"
+                    rx="4"
+                    fill="rgba(8, 20, 36, 0.95)"
+                    stroke={color}
+                    strokeWidth="1"
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="4"
+                    fill="#ffffff"
+                    fontSize="9"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="700"
+                  >
+                    LSP #{item.packet.sequenceNumber}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
+          {/* In-Flight DVR Distance Vector Messages Layer (Periodic Neighbor Exchanges) */}
+          {inFlightDVMessages.map((item) => {
+            const srcNode = graph.getNode(item.sourceNodeId);
+            const tgtNode = graph.getNode(item.targetNodeId);
+            if (!srcNode || !tgtNode) return null;
+
+            const prog = item.progress > 0 ? item.progress : 0.5;
+            const posX = srcNode.x + (tgtNode.x - srcNode.x) * prog;
+            const posY = srcNode.y + (tgtNode.y - srcNode.y) * prog;
+            const color = 'var(--accent-purple)';
+
+            return (
+              <g key={`dv-${item.message.id}`} transform={`translate(${posX}, ${posY})`}>
+                <circle
+                  r="16"
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="1.5"
+                  strokeDasharray="3 3"
+                  style={{
+                    filter: `drop-shadow(0 0 8px ${color})`,
+                    opacity: 0.7,
+                  }}
+                />
+                <circle
+                  r="7.5"
+                  fill={color}
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                  style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+                />
+                <g transform="translate(0, -18)">
+                  <rect
+                    x="-32"
+                    y="-9"
+                    width="64"
+                    height="18"
+                    rx="4"
+                    fill="rgba(24, 8, 36, 0.95)"
+                    stroke={color}
+                    strokeWidth="1"
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="4"
+                    fill="#ffffff"
+                    fontSize="9"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="700"
+                  >
+                    DV ({item.message.vector.length} routes)
+                  </text>
+                </g>
+              </g>
+            );
+          })}
         </g>
       </svg>
 
       {/* Floating Canvas Controls Toolbar */}
-      <div
-        className="glass-panel"
-        style={{
-          position: 'absolute',
-          bottom: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 10px',
-          zIndex: 100,
-        }}
-      >
-        <button
-          className={`btn ${toolMode === 'select' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
-          title="Select & Drag Mode"
-          onClick={() => setToolMode('select')}
-        >
-          <Hand size={16} />
-        </button>
-
-        <button
-          className={`btn ${toolMode === 'link' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
-          title="Connect Link Mode (Drag between routers)"
-          onClick={() => setToolMode(toolMode === 'link' ? 'select' : 'link')}
-        >
-          <Link2 size={16} />
-        </button>
-
-        <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
-
-        {!readOnly && (
-          <button
-            className="btn btn-secondary"
-            title="Add New Router"
-            onClick={handleAddRouter}
-            style={{ fontSize: '12px', padding: '6px 12px' }}
-          >
-            <Plus size={16} /> Add Router
-          </button>
-        )}
-
-        <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
-
-        <button
-          className="btn btn-secondary btn-icon"
-          title="Zoom In"
-          onClick={() => handleZoom(0.15)}
-        >
-          <ZoomIn size={16} />
-        </button>
-
-        <button
-          className="btn btn-secondary btn-icon"
-          title="Zoom Out"
-          onClick={() => handleZoom(-0.15)}
-        >
-          <ZoomOut size={16} />
-        </button>
-
-        <button
-          className="btn btn-secondary btn-icon"
-          title="Zoom to Fit All"
-          onClick={handleZoomToFit}
-        >
-          <Maximize2 size={16} />
-        </button>
-
-        <button
-          className="btn btn-secondary btn-icon"
-          title="Reset View"
-          onClick={handleResetView}
-        >
-          <RotateCcw size={16} />
-        </button>
-
-        <span
+      {showControls && (
+        <div
+          className="glass-panel"
           style={{
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-secondary)',
-            marginLeft: '6px',
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 10px',
+            zIndex: 100,
           }}
         >
-          {Math.round(zoom * 100)}%
-        </span>
-      </div>
+          <button
+            className={`btn ${toolMode === 'select' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
+            title="Select & Drag Mode"
+            onClick={() => setToolMode('select')}
+          >
+            <Hand size={16} />
+          </button>
+
+          <button
+            className={`btn ${toolMode === 'link' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
+            title="Connect Link Mode (Drag between routers)"
+            onClick={() => setToolMode(toolMode === 'link' ? 'select' : 'link')}
+          >
+            <Link2 size={16} />
+          </button>
+
+          <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
+
+          {!readOnly && (
+            <button
+              className="btn btn-secondary"
+              title="Add New Router"
+              onClick={handleAddRouter}
+              style={{ fontSize: '12px', padding: '6px 12px' }}
+            >
+              <Plus size={16} /> Add Router
+            </button>
+          )}
+
+          <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
+
+          <button
+            className="btn btn-secondary btn-icon"
+            title="Zoom In"
+            onClick={() => handleZoom(0.15)}
+          >
+            <ZoomIn size={16} />
+          </button>
+
+          <button
+            className="btn btn-secondary btn-icon"
+            title="Zoom Out"
+            onClick={() => handleZoom(-0.15)}
+          >
+            <ZoomOut size={16} />
+          </button>
+
+          <button
+            className="btn btn-secondary btn-icon"
+            title="Zoom to Fit All"
+            onClick={handleZoomToFit}
+          >
+            <Maximize2 size={16} />
+          </button>
+
+          <button
+            className="btn btn-secondary btn-icon"
+            title="Reset View"
+            onClick={handleResetView}
+          >
+            <RotateCcw size={16} />
+          </button>
+
+          <span
+            style={{
+              fontSize: '11px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-secondary)',
+              marginLeft: '6px',
+            }}
+          >
+            {Math.round(zoom * 100)}%
+          </span>
+        </div>
+      )}
 
       {/* Edge Modal */}
       {editingEdge && (

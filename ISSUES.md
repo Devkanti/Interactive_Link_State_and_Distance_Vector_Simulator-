@@ -169,10 +169,10 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Build a dedicated split-screen view running Link State Routing on the left and Distance Vector Routing on the right over identical topology and identical injected failure events.
 * **Acceptance Criteria**:
-  - [ ] Dual-panel canvas layout: **Left = Link State (OSPF-style)**, **Right = Distance Vector (RIP-style)**.
-  - [ ] Synchronized graph updates: Editing a link or injecting a failure in either view automatically mirrors to both engines.
-  - [ ] Synchronized simulation clock: Single Play/Pause/Step controls both engines simultaneously.
-  - [ ] Distinct visual packet representations:
+  - [x] Dual-panel canvas layout: **Left = Link State (OSPF-style)**, **Right = Distance Vector (RIP-style)**.
+  - [x] Synchronized graph updates: Editing a link or injecting a failure in either view automatically mirrors to both engines.
+  - [x] Synchronized simulation clock: Single Play/Pause/Step controls both engines simultaneously.
+  - [x] Distinct visual packet representations:
     - LSR shows LSP flood packets radiating outward.
     - DVR shows periodic vector exchanges between immediate neighbors.
 
