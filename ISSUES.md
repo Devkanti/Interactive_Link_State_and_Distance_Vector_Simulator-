@@ -82,12 +82,12 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Build a high-performance interactive network topology canvas supporting router drag-and-drop, link creation, metric editing, and instant visual status indicators.
 * **Acceptance Criteria**:
-  - [ ] Interactive Canvas rendering nodes as clean router glyphs with labels (`R1`, `R2`, etc.).
-  - [ ] Drag-to-move nodes with automatic dynamic line re-anchoring.
-  - [ ] Click-and-drag between two nodes to create an edge.
-  - [ ] Inline click or modal on an edge to edit metric/weight in real time.
-  - [ ] Context menu / buttons to delete nodes, delete links, or toggle link state (`UP` / `DOWN`).
-  - [ ] Responsive canvas controls: Pan, Zoom to fit, and Reset view.
+  - [x] Interactive Canvas rendering nodes as clean router glyphs with labels (`R1`, `R2`, etc.).
+  - [x] Drag-to-move nodes with automatic dynamic line re-anchoring.
+  - [x] Click-and-drag between two nodes to create an edge.
+  - [x] Inline click or modal on an edge to edit metric/weight in real time.
+  - [x] Context menu / buttons to delete nodes, delete links, or toggle link state (`UP` / `DOWN`).
+  - [x] Responsive canvas controls: Pan, Zoom to fit, and Reset view.
 
 ---
 
@@ -96,11 +96,11 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Provide 1-click loading of standard academic and benchmark networking topologies to immediately demonstrate routing behaviors.
 * **Acceptance Criteria**:
-  - [ ] **Preset 1: Linear 3-Node Topology ($A - B - C$)**: Specifically tuned to demonstrate Count-to-Infinity and Poison Reverse.
-  - [ ] **Preset 2: Diamond / Multi-Path Topology**: Demonstrates alternate path failover and load distribution.
-  - [ ] **Preset 3: ARPANET 1972 Core Subnet**: Classic historical benchmark topology.
-  - [ ] **Preset 4: Ring & Dual-Ring Topology**: Evaluates convergence speed and flapping behaviors.
-  - [ ] **Preset 5: Random Mesh Generator**: Customizable sliders for Node Count ($N$) and Link Probability ($P$) with guaranteed connectivity.
+  - [x] **Preset 1: Linear 3-Node Topology ($A - B - C$)**: Specifically tuned to demonstrate Count-to-Infinity and Poison Reverse.
+  - [x] **Preset 2: Diamond / Multi-Path Topology**: Demonstrates alternate path failover and load distribution.
+  - [x] **Preset 3: ARPANET 1972 Core Subnet**: Classic historical benchmark topology.
+  - [x] **Preset 4: Ring & Dual-Ring Topology**: Evaluates convergence speed and flapping behaviors.
+  - [x] **Preset 5: Random Mesh Generator**: Customizable sliders for Node Count ($N$) and Link Probability ($P$) with guaranteed connectivity.
 
 ---
 
@@ -109,10 +109,10 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Build interactive side drawers/panels that update in real time when any router is selected on the canvas.
 * **Acceptance Criteria**:
-  - [ ] Clicking any router displays its active **Forwarding / Routing Table** (`Destination`, `Next Hop`, `Metric`, `Interface Status`).
-  - [ ] In Link State mode: render the synchronized **Link State Database (LSDB)** matrix.
-  - [ ] In Distance Vector mode: render the complete **Distance Vector Matrix** ($D_x(y)$ for all neighbors $v$).
-  - [ ] Visual color-coding: highlight newly updated routes or relaxed rows in green, invalidated routes in red.
+  - [x] Clicking any router displays its active **Forwarding / Routing Table** (`Destination`, `Next Hop`, `Metric`, `Interface Status`).
+  - [x] In Link State mode: render the synchronized **Link State Database (LSDB)** matrix.
+  - [x] In Distance Vector mode: render the complete **Distance Vector Matrix** ($D_x(y)$ for all neighbors $v$).
+  - [x] Visual color-coding: highlight newly updated routes or relaxed rows in green, invalidated routes in red.
 
 ---
 
