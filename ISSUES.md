@@ -23,11 +23,11 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Establish the foundation data models for network topologies (nodes, directed/undirected edges, weights, interface state UP/DOWN) and a deterministic discrete-event simulation clock that records historical state snapshots.
 * **Acceptance Criteria**:
-  - [ ] Implement `NetworkGraph` class supporting dynamic addition/removal of nodes and weighted links.
-  - [ ] Implement node statuses (`ACTIVE`, `CRASHED`) and edge statuses (`UP`, `DOWN`, `FLAPPING`).
-  - [ ] Implement `SimulationClock` supporting tick-based increments, pause, reset, and step execution.
-  - [ ] Implement `StateLedger` which captures an immutable snapshot of all routing tables and graph states at every tick $t$.
-  - [ ] Provide comprehensive unit tests verifying graph mutation and snapshot integrity.
+  - [x] Implement `NetworkGraph` class supporting dynamic addition/removal of nodes and weighted links.
+  - [x] Implement node statuses (`ACTIVE`, `CRASHED`) and edge statuses (`UP`, `DOWN`, `FLAPPING`).
+  - [x] Implement `SimulationClock` supporting tick-based increments, pause, reset, and step execution.
+  - [x] Implement `StateLedger` which captures an immutable snapshot of all routing tables and graph states at every tick $t$.
+  - [x] Provide comprehensive unit tests verifying graph mutation and snapshot integrity.
 
 ---
 
@@ -36,12 +36,12 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement the full Link State Routing protocol pipeline, including Link State Packet (LSP) generation, reliable flooding with sequence numbers and age, synchronized Link State Database (LSDB), and Dijkstra's Shortest Path First (SPF) algorithm.
 * **Acceptance Criteria**:
-  - [ ] Define `LinkStatePacket` structure: `(senderId, sequenceNumber, age, neighborsWithCosts)`.
-  - [ ] Implement controlled flooding algorithm with duplicate suppression and sequence number tracking.
-  - [ ] Implement synchronized `LSDB` (Link State Database) per node.
-  - [ ] Implement Dijkstra's SPF algorithm computing the shortest-path tree from any root node.
-  - [ ] Generate standard Forwarding Table (`Destination`, `NextHop`, `TotalCost`, `Path`) for each router.
-  - [ ] Handle link cost dynamic changes and edge down events by triggering incremental LSP floods.
+  - [x] Define `LinkStatePacket` structure: `(senderId, sequenceNumber, age, neighborsWithCosts)`.
+  - [x] Implement controlled flooding algorithm with duplicate suppression and sequence number tracking.
+  - [x] Implement synchronized `LSDB` (Link State Database) per node.
+  - [x] Implement Dijkstra's SPF algorithm computing the shortest-path tree from any root node.
+  - [x] Generate standard Forwarding Table (`Destination`, `NextHop`, `TotalCost`, `Path`) for each router.
+  - [x] Handle link cost dynamic changes and edge down events by triggering incremental LSP floods.
 
 ---
 
@@ -50,12 +50,12 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement the Distance Vector protocol modeling Bellman-Ford iterative exchanges. Routers exchange distance vectors exclusively with direct operational neighbors during exchange ticks.
 * **Acceptance Criteria**:
-  - [ ] Define `DistanceVector` message payload: array of `(destNodeId, cost)`.
-  - [ ] Implement local routing table for each node: `(destination, cost, nextHop)`.
-  - [ ] Implement Bellman-Ford relaxation step on tick update:
+  - [x] Define `DistanceVector` message payload: array of `(destNodeId, cost)`.
+  - [x] Implement local routing table for each node: `(destination, cost, nextHop)`.
+  - [x] Implement Bellman-Ford relaxation step on tick update:
     $$D_x(y) = \min_v \{ c(x,v) + D_v(y) \}$$
-  - [ ] Implement convergence detector that flags the network as `STABLE` when no vector changes occur across a full iteration.
-  - [ ] Track message exchange overhead (count of vectors transmitted per tick).
+  - [x] Implement convergence detector that flags the network as `STABLE` when no vector changes occur across a full iteration.
+  - [x] Track message exchange overhead (count of vectors transmitted per tick).
 
 ---
 
@@ -64,14 +64,14 @@ This document outlines the complete breakdown of tasks and GitHub-ready issues f
 * **Description**:  
   Implement configurable switches for routing pathologies and mitigations, including standard Count-to-Infinity ($\infty = 16$), Split Horizon, and Poison Reverse.
 * **Acceptance Criteria**:
-  - [ ] Add global/per-node toggles:
+  - [x] Add global/per-node toggles:
     - `splitHorizonEnabled: boolean`
     - `poisonReverseEnabled: boolean`
     - `infinityThreshold: number` (default: 16)
-  - [ ] Implement standard Count-to-Infinity behavior when Split Horizon is disabled and a critical link breaks.
-  - [ ] Implement Split Horizon logic: omit routes learned via neighbor $V$ when advertising to $V$.
-  - [ ] Implement Poison Reverse logic: advertise routes learned via neighbor $V$ to $V$ with metric $\infty$.
-  - [ ] Unit tests verifying that Count-to-Infinity halts at $\infty = 16$ or converges cleanly with Poison Reverse on standard 3-node linear topologies.
+  - [x] Implement standard Count-to-Infinity behavior when Split Horizon is disabled and a critical link breaks.
+  - [x] Implement Split Horizon logic: omit routes learned via neighbor $V$ when advertising to $V$.
+  - [x] Implement Poison Reverse logic: advertise routes learned via neighbor $V$ to $V$ with metric $\infty$.
+  - [x] Unit tests verifying that Count-to-Infinity halts at $\infty = 16$ or converges cleanly with Poison Reverse on standard 3-node linear topologies.
 
 ---
 
