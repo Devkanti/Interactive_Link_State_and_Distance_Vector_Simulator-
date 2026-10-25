@@ -51,3 +51,28 @@ export interface DVRMetrics {
 }
 
 export type NeighborVectorTable = Map<NodeId, Map<NodeId, number>>; // neighborId -> destNodeId -> cost
+
+export interface BellmanFordNeighborEval {
+  neighborId: NodeId;
+  linkCost: number;
+  neighborReportedDist: number;
+  totalCost: number;
+  isWinningNeighbor: boolean;
+}
+
+export interface BellmanFordRelaxationRow {
+  destination: NodeId;
+  previousCost: number;
+  previousNextHop: NodeId | null;
+  evaluations: BellmanFordNeighborEval[];
+  winningNeighbor: NodeId | null;
+  winningCost: number;
+  hasImprovedOrChanged: boolean;
+}
+
+export interface BellmanFordStepExplanation {
+  nodeId: NodeId;
+  formula: string;
+  infinityThreshold: number;
+  rows: BellmanFordRelaxationRow[];
+}
