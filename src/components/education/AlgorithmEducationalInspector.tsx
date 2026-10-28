@@ -81,9 +81,9 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
         flexDirection: 'column',
         gap: '20px',
         padding: '24px',
-        background: 'rgba(9, 14, 28, 0.97)',
+        background: 'rgba(255, 255, 255, 0.96)',
         border: '1px solid var(--border-strong)',
-        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 25px rgba(56, 189, 248, 0.15)',
+        boxShadow: '0 24px 60px rgba(92, 50, 20, 0.16), 0 0 25px rgba(148, 200, 253, 0.25)',
         zIndex: 250,
       }}
     >
@@ -105,21 +105,21 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
               borderRadius: 'var(--radius-sm)',
               background:
                 mode === 'DIJKSTRA'
-                  ? 'linear-gradient(135deg, #0284c7, #38bdf8)'
-                  : 'linear-gradient(135deg, #9333ea, #c084fc)',
+                  ? 'linear-gradient(135deg, #3B8BEB, #6EAEFD)'
+                  : 'linear-gradient(135deg, #E87A50, #FAA885)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow:
                 mode === 'DIJKSTRA'
-                  ? '0 0 12px rgba(56, 189, 248, 0.4)'
-                  : '0 0 12px rgba(147, 51, 234, 0.4)',
+                  ? '0 0 12px rgba(59, 139, 235, 0.45)'
+                  : '0 0 12px rgba(232, 122, 80, 0.4)',
             }}
           >
-            <BookOpen size={18} color="#fff" />
+            <BookOpen size={18} color="#ffffff" />
           </div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 800 }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
               Step-by-Step Algorithm Educational Inspector
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -152,10 +152,11 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
           style={{
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(0, 0, 0, 0.5)',
-            padding: '3px',
+            background: 'rgba(254, 239, 229, 0.75)',
+            padding: '4px',
             borderRadius: 'var(--radius-full)',
             border: '1px solid var(--border-subtle)',
+            gap: '4px',
           }}
         >
           <button
@@ -163,22 +164,23 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
             onClick={() => setMode('DIJKSTRA')}
             style={{
               fontSize: '11px',
-              padding: '5px 14px',
+              padding: '6px 16px',
               borderRadius: 'var(--radius-full)',
-              height: 28,
+              height: 30,
+              fontWeight: 700,
             }}
           >
             <Sparkles size={13} /> Dijkstra SPF (Link State)
           </button>
           <button
-            className={`btn ${mode === 'BELLMAN_FORD' ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn ${mode === 'BELLMAN_FORD' ? 'btn-purple' : 'btn-ghost'}`}
             onClick={() => setMode('BELLMAN_FORD')}
             style={{
               fontSize: '11px',
-              padding: '5px 14px',
+              padding: '6px 16px',
               borderRadius: 'var(--radius-full)',
-              height: 28,
-              background: mode === 'BELLMAN_FORD' ? 'var(--accent-purple)' : undefined,
+              height: 30,
+              fontWeight: 700,
             }}
           >
             <Sigma size={13} /> Bellman-Ford Matrix (Distance Vector)
@@ -186,26 +188,27 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
         </div>
 
         {/* Root Node Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            Root Router ($u$):
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Root Router (u):
           </span>
-          <div style={{ display: 'flex', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '6px', background: 'rgba(254, 239, 229, 0.75)', padding: '3px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
             {allNodes.map((nodeId) => (
               <button
                 key={nodeId}
-                className={`btn ${activeRoot === nodeId ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn ${activeRoot === nodeId ? (mode === 'DIJKSTRA' ? 'btn-primary' : 'btn-purple') : 'btn-ghost'}`}
                 onClick={() => {
                   onSelectNode(nodeId);
                   setDijkstraStepIndex(0);
                 }}
                 style={{
-                  fontSize: '11px',
-                  padding: '3px 8px',
-                  minWidth: 30,
-                  height: 26,
+                  fontSize: '12px',
+                  padding: '2px 10px',
+                  minWidth: 32,
+                  height: 28,
                   fontFamily: 'var(--font-mono)',
-                  fontWeight: 700,
+                  fontWeight: 800,
+                  borderRadius: 'var(--radius-sm)',
                 }}
               >
                 {nodeId}
@@ -228,7 +231,7 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 16px',
-              background: 'rgba(15, 23, 42, 0.65)',
+              background: 'rgba(254, 239, 229, 0.65)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -293,25 +296,28 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
             <div
               className="glass-panel"
               style={{
-                padding: '12px',
+                padding: '14px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
-                background: 'rgba(16, 185, 129, 0.08)',
+                gap: '10px',
+                background: 'rgba(16, 185, 129, 0.07)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: 'var(--radius-md)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                  Visited / Finalized Set $S$
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={14} /> Finalized SPT Set (S)
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span className="badge badge-converged" style={{ fontSize: '10px', padding: '2px 8px' }}>
                   {currentStep.visitedNodes.length} nodes
                 </span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {currentStep.visitedNodes.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Set is empty</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                    Set is currently empty. Next node with minimum tentative distance will enter S.
+                  </span>
                 ) : (
                   currentStep.visitedNodes.map((n) => (
                     <div
@@ -319,7 +325,7 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                       style={{
                         padding: '4px 10px',
                         borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(16, 185, 129, 0.2)',
+                        background: 'rgba(16, 185, 129, 0.18)',
                         border: '1px solid var(--accent-emerald)',
                         color: 'var(--accent-emerald)',
                         fontSize: '11px',
@@ -327,10 +333,13 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
+                        gap: '6px',
+                        boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
                       }}
                     >
-                      <CheckCircle2 size={11} /> {n} (dist: {currentStep.tentativeDistances[n]})
+                      <span>{n}</span>
+                      <span style={{ opacity: 0.7, fontWeight: 400 }}>|</span>
+                      <span>dist: {currentStep.tentativeDistances[n]}</span>
                     </div>
                   ))
                 )}
@@ -341,25 +350,28 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
             <div
               className="glass-panel"
               style={{
-                padding: '12px',
+                padding: '14px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
-                background: 'rgba(245, 158, 11, 0.08)',
+                gap: '10px',
+                background: 'rgba(245, 158, 11, 0.07)',
                 border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 'var(--radius-md)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-amber)' }}>
-                  Unvisited Frontier Set $Q$
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--accent-amber)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={14} /> Candidate Frontier Set (Q)
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {currentStep.unvisitedNodes.length} candidate(s)
+                <span className="badge badge-unstable" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                  {currentStep.unvisitedNodes.length} candidates
                 </span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {currentStep.unvisitedNodes.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>All nodes finalized!</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                    All candidate routers finalized into Shortest Path Tree!
+                  </span>
                 ) : (
                   currentStep.unvisitedNodes.map((n) => {
                     const distVal = currentStep.tentativeDistances[n];
@@ -369,18 +381,20 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                         style={{
                           padding: '4px 10px',
                           borderRadius: 'var(--radius-sm)',
-                          background: 'rgba(245, 158, 11, 0.15)',
+                          background: 'rgba(245, 158, 11, 0.14)',
                           border: '1px solid rgba(245, 158, 11, 0.5)',
                           color: 'var(--accent-amber)',
                           fontSize: '11px',
                           fontFamily: 'var(--font-mono)',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '6px',
                         }}
                       >
-                        <Clock size={11} /> {n}: {distVal === Infinity ? '\u221E' : distVal}
+                        <span>{n}</span>
+                        <span style={{ opacity: 0.6, fontWeight: 400 }}>:</span>
+                        <span>{distVal === Infinity ? '\u221E' : distVal}</span>
                       </div>
                     );
                   })
@@ -392,19 +406,20 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
           {/* Tentative Distances & Predecessors Table */}
           <div
             style={{
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               overflow: 'hidden',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <table className="data-table" style={{ fontSize: '11px' }}>
               <thead>
                 <tr>
-                  <th>Destination Router ($v$)</th>
-                  <th>Status</th>
-                  <th>Tentative Distance $dist[v]$</th>
-                  <th>Predecessor $prev[v]$</th>
-                  <th>Active Path from Root {activeRoot}</th>
+                  <th style={{ width: '22%' }}>Destination (v)</th>
+                  <th style={{ width: '18%' }}>Status</th>
+                  <th style={{ width: '20%' }}>Tentative Distance dist[v]</th>
+                  <th style={{ width: '18%' }}>Predecessor prev[v]</th>
+                  <th style={{ width: '22%' }}>Active Path from Root {activeRoot}</th>
                 </tr>
               </thead>
               <tbody>
@@ -419,14 +434,19 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                       key={nodeId}
                       style={{
                         background: isCurrent
-                          ? 'rgba(56, 189, 248, 0.15)'
+                          ? 'rgba(56, 189, 248, 0.16)'
                           : isVisited
                           ? 'rgba(16, 185, 129, 0.05)'
                           : undefined,
                       }}
                     >
-                      <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                        {nodeId} {nodeId === activeRoot ? '(Root)' : ''}
+                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '12px' }}>{nodeId}</span>{' '}
+                        {nodeId === activeRoot && (
+                          <span className="badge badge-lsr" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                            ROOT
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span
@@ -439,13 +459,14 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                           }`}
                           style={{ fontSize: '10px' }}
                         >
-                          {isCurrent ? 'Examining' : isVisited ? 'Finalized (S)' : 'Unvisited (Q)'}
+                          {isCurrent ? '★ Examining' : isVisited ? 'Finalized (S)' : 'Unvisited (Q)'}
                         </span>
                       </td>
                       <td
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
+                          fontWeight: 800,
+                          fontSize: '12px',
                           color:
                             distVal === 0
                               ? 'var(--accent-emerald)'
@@ -456,11 +477,13 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                       >
                         {distVal === Infinity ? '\u221E' : distVal}
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>
-                        {prevVal ?? '\u2014'}
+                      <td style={{ fontFamily: 'var(--font-mono)', color: prevVal ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {prevVal ?? '—'}
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                        {dijkstraResult.forwardingTable[nodeId]?.path?.join(' \u2192 ') || '\u2014'}
+                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                        {dijkstraResult.forwardingTable[nodeId]?.path?.join(' \u2192 ') || (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -480,18 +503,19 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
           <div
             className="glass-panel"
             style={{
-              padding: '14px 18px',
-              background: 'rgba(147, 51, 234, 0.1)',
+              padding: '16px 20px',
+              background: 'rgba(147, 51, 234, 0.08)',
               border: '1px solid rgba(192, 132, 252, 0.3)',
+              borderRadius: 'var(--radius-md)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px',
+              gap: '8px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Zap size={16} color="var(--accent-purple)" />
-              <strong style={{ fontSize: '13px', color: 'var(--accent-purple)' }}>
-                Bellman-Ford Distributed Equation
+              <strong style={{ fontSize: '13px', color: 'var(--accent-purple)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Bellman-Ford Distributed Relaxation Equation
               </strong>
             </div>
 
@@ -500,34 +524,39 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                 fontSize: '15px',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 800,
-                color: '#ffffff',
-                padding: '4px 0',
+                color: 'var(--text-primary)',
+                padding: '6px 12px',
+                background: 'rgba(254, 239, 229, 0.75)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)',
+                width: 'fit-content',
               }}
             >
               {`D_${activeRoot}(y) = min_{v \u2208 N(${activeRoot})} { c(${activeRoot}, v) + D_v(y) }`}
             </div>
 
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              For router <strong>{activeRoot}</strong>, the shortest distance to destination <strong>$y$</strong> is computed by taking the minimum sum of link cost to direct operational neighbor <strong>$v$</strong> plus neighbor <strong>$v$</strong>'s reported distance to <strong>$y$</strong>.
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              For router <strong style={{ color: 'var(--text-primary)' }}>{activeRoot}</strong>, the shortest distance to destination <strong style={{ color: 'var(--text-primary)' }}>y</strong> is computed by minimizing the sum of link cost <code style={{ color: 'var(--accent-purple)' }}>c(u, v)</code> to direct neighbor <strong style={{ color: 'var(--text-primary)' }}>v</strong> plus that neighbor's reported distance <code style={{ color: 'var(--accent-purple)' }}>Dv(y)</code>.
             </div>
           </div>
 
           {/* Relaxation Matrix Table */}
           <div
             style={{
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               overflowX: 'auto',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <table className="data-table" style={{ fontSize: '11px' }}>
               <thead>
                 <tr>
-                  <th>Destination ($y$)</th>
+                  <th>Destination (y)</th>
                   <th>Previous Cost</th>
-                  <th>Evaluations $c({activeRoot}, v) + D_v(y)$</th>
-                  <th>Winning Neighbor ($v^*$)</th>
-                  <th>Updated $D_{activeRoot}(y)$</th>
+                  <th>Relaxation Evaluations: c(u, v) + Dv(y)</th>
+                  <th>Winning Next Hop (v*)</th>
+                  <th>Updated Du(y)</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -545,27 +574,36 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                           : undefined,
                       }}
                     >
-                      <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                        {row.destination} {isSelf ? '(Self)' : ''}
+                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '12px' }}>{row.destination}</span>{' '}
+                        {isSelf && (
+                          <span className="badge badge-dvr" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                            SELF
+                          </span>
+                        )}
                       </td>
 
                       <td style={{ fontFamily: 'var(--font-mono)' }}>
                         {row.previousCost >= bfExplanation.infinityThreshold
                           ? '\u221E'
                           : row.previousCost}{' '}
-                        {row.previousNextHop ? `(via ${row.previousNextHop})` : ''}
+                        {row.previousNextHop ? (
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>
+                            (via {row.previousNextHop})
+                          </span>
+                        ) : ''}
                       </td>
 
                       <td>
                         {row.evaluations.length === 0 ? (
-                          <span style={{ color: 'var(--text-muted)' }}>Direct loopback (cost 0)</span>
+                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Direct loopback (cost 0)</span>
                         ) : (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {row.evaluations.map((ev) => (
                               <span
                                 key={ev.neighborId}
                                 style={{
-                                  padding: '2px 6px',
+                                  padding: '3px 8px',
                                   borderRadius: 'var(--radius-sm)',
                                   background: ev.isWinningNeighbor
                                     ? 'rgba(16, 185, 129, 0.2)'
@@ -579,7 +617,8 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                                     ? 'var(--accent-emerald)'
                                     : 'var(--text-secondary)',
                                   fontFamily: 'var(--font-mono)',
-                                  fontSize: '10px',
+                                  fontSize: '11px',
+                                  fontWeight: ev.isWinningNeighbor ? 700 : 500,
                                 }}
                               >
                                 v={ev.neighborId}: {ev.linkCost} +{' '}
@@ -597,19 +636,20 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                         {row.winningNeighbor ? (
                           <span
                             className="badge badge-converged"
-                            style={{ fontSize: '10px', fontFamily: 'var(--font-mono)' }}
+                            style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}
                           >
-                            ★ {row.winningNeighbor}
+                            ★ via {row.winningNeighbor}
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>None</span>
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
 
                       <td
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
+                          fontWeight: 800,
+                          fontSize: '12px',
                           color: isUnreachable
                             ? 'var(--accent-rose)'
                             : 'var(--accent-purple)',
@@ -632,7 +672,7 @@ export const AlgorithmEducationalInspector: React.FC<AlgorithmEducationalInspect
                           {isSelf
                             ? 'Root (0)'
                             : row.hasImprovedOrChanged
-                            ? 'Updated'
+                            ? 'Relaxed'
                             : 'Stable'}
                         </span>
                       </td>

@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { SimulationClock } from '../../core/SimulationClock';
 import { LinkStateEngine } from '../../core/lsr/LinkStateEngine';
 import { DistanceVectorEngine } from '../../core/dvr/DistanceVectorEngine';
 import { ProtocolMode } from '../inspector/RouterInspector';
 import {
-  Play,
-  Pause,
-  SkipForward,
-  RotateCcw,
   Zap,
   Activity,
   Send,
-  Gauge,
+  RotateCcw,
 } from 'lucide-react';
 
 interface SimulationBarProps {
@@ -21,39 +17,20 @@ interface SimulationBarProps {
   mode: ProtocolMode;
   onModeChange: (mode: ProtocolMode) => void;
   onStep: () => void;
+  onBroadcast?: () => void;
   onReset: () => void;
   currentTick: number;
 }
 
 export const SimulationBar: React.FC<SimulationBarProps> = ({
-  clock,
   lsrEngine,
   dvrEngine,
   mode,
   onModeChange,
   onStep,
-  onReset,
+  onBroadcast,
   currentTick,
 }) => {
-  const [isRunning, setIsRunning] = useState(clock.getIsRunning());
-  const [speed, setSpeed] = useState(clock.getSpeed());
-
-  useEffect(() => {
-    return clock.onRunningStateChange((running) => {
-      setIsRunning(running);
-    });
-  }, [clock]);
-
-  const handleTogglePlay = () => {
-    clock.toggle();
-    setIsRunning(clock.getIsRunning());
-  };
-
-  const handleSpeedChange = (newSpeed: number) => {
-    clock.setSpeed(newSpeed);
-    setSpeed(newSpeed);
-  };
-
   const lsrMetrics = lsrEngine.getMetrics();
   const dvrMetrics = dvrEngine.getMetrics();
   const isConverged = mode === 'LSR' ? lsrMetrics.isConverged : dvrMetrics.isStable;
@@ -68,126 +45,164 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
         zIndex: 100,
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
-        padding: '8px 14px',
-        boxShadow: 'var(--shadow-md)',
+        gap: '8px',
+        padding: '4px 8px',
+        boxShadow: '0 8px 30px rgba(92, 50, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+        borderRadius: 'var(--radius-full)',
+        border: '1px solid var(--border-subtle)',
+        background: 'rgba(255, 255, 255, 0.88)',
+        backdropFilter: 'blur(16px)',
+        height: 42,
       }}
     >
-      {/* Protocol Mode Toggle */}
+      {/* Segmented Protocol Selector */}
       <div
         style={{
           display: 'flex',
-          background: 'rgba(0, 0, 0, 0.4)',
-          padding: '2px',
-          borderRadius: 'var(--radius-sm)',
+          alignItems: 'center',
+          background: 'rgba(254, 239, 229, 0.75)',
+          padding: '3px',
+          borderRadius: 'var(--radius-full)',
           border: '1px solid var(--border-subtle)',
+          gap: '2px',
         }}
       >
         <button
-          className={`btn ${mode === 'LSR' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn"
           onClick={() => onModeChange('LSR')}
-          style={{ padding: '6px 10px', fontSize: '11px' }}
+          style={{
+            padding: '4px 12px',
+            fontSize: '11.5px',
+            borderRadius: 'var(--radius-full)',
+            height: 28,
+            fontWeight: mode === 'LSR' ? 800 : 500,
+            background: mode === 'LSR' ? 'linear-gradient(135deg, #3B8BEB, #6EAEFD)' : 'transparent',
+            color: mode === 'LSR' ? '#ffffff' : 'var(--text-secondary)',
+            boxShadow: mode === 'LSR' ? '0 2px 10px rgba(59, 139, 235, 0.4)' : 'none',
+            border: 'none',
+          }}
+          title="Switch to Link State Routing (OSPF / Dijkstra SPF)"
         >
-          <Zap size={13} /> Link State
+          <Zap size={13} color={mode === 'LSR' ? '#ffffff' : 'var(--accent-cyan)'} />
+          Link State (OSPF)
         </button>
+
         <button
-          className={`btn ${mode === 'DVR' ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn"
           onClick={() => onModeChange('DVR')}
-          style={{ padding: '6px 10px', fontSize: '11px' }}
+          style={{
+            padding: '4px 12px',
+            fontSize: '11.5px',
+            borderRadius: 'var(--radius-full)',
+            height: 28,
+            fontWeight: mode === 'DVR' ? 700 : 500,
+            background: mode === 'DVR' ? 'linear-gradient(135deg, #E87A50, #FAA885)' : 'transparent',
+            color: mode === 'DVR' ? '#ffffff' : 'var(--text-secondary)',
+            boxShadow: mode === 'DVR' ? '0 2px 10px rgba(232, 122, 80, 0.4)' : 'none',
+            border: 'none',
+          }}
+          title="Switch to Distance Vector Routing (RIP / Bellman-Ford)"
         >
-          <Activity size={13} /> Distance Vector
+          <Activity size={13} color={mode === 'DVR' ? '#ffffff' : 'var(--accent-peach)'} />
+          Distance Vector (RIP)
         </button>
       </div>
 
-      <div style={{ width: 1, height: 22, background: 'var(--border-subtle)' }} />
+      <div style={{ width: 1, height: 18, background: 'var(--border-subtle)', margin: '0 2px' }} />
 
-      {/* Clock Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <button
-          className={`btn ${isRunning ? 'btn-accent' : 'btn-primary'} btn-icon`}
-          onClick={handleTogglePlay}
-          title={isRunning ? 'Pause Simulation' : 'Run Simulation'}
-        >
-          {isRunning ? <Pause size={15} /> : <Play size={15} />}
-        </button>
-
-        <button
-          className="btn btn-secondary btn-icon"
-          onClick={onStep}
-          title="Step Forward (+1 Discrete Tick)"
-        >
-          <SkipForward size={15} />
-        </button>
-
-        <button
-          className="btn btn-secondary btn-icon"
-          onClick={onReset}
-          title="Reset Simulation Clock"
-        >
-          <RotateCcw size={15} />
-        </button>
-      </div>
-
-      <div style={{ width: 1, height: 22, background: 'var(--border-subtle)' }} />
-
-      {/* Speed Selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <Gauge size={13} color="var(--text-muted)" />
-        {[0.5, 1.0, 2.0].map((s) => (
-          <button
-            key={s}
-            className={`btn ${speed === s ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '3px 7px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}
-            onClick={() => handleSpeedChange(s)}
-          >
-            {s}x
-          </button>
-        ))}
-      </div>
-
-      <div style={{ width: 1, height: 22, background: 'var(--border-subtle)' }} />
-
-      {/* Clock Tick & Status Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Discrete Clock
-          </span>
+      {/* Convergence Status Pill with LED / Spinner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-full)',
+          background: isConverged ? 'rgba(31, 163, 126, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+          border: `1px solid ${isConverged ? 'rgba(31, 163, 126, 0.35)' : 'rgba(217, 119, 6, 0.4)'}`,
+          height: 28,
+        }}
+        title={`Convergence status of ${mode === 'LSR' ? 'Link State' : 'Distance Vector'} protocol`}
+      >
+        {isConverged ? (
           <span
             style={{
-              fontSize: '13px',
-              fontWeight: 800,
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--accent-cyan)',
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: 'var(--accent-emerald)',
+              boxShadow: '0 0 8px var(--accent-emerald)',
             }}
-          >
-            Tick #{currentTick}
-          </span>
-        </div>
+          />
+        ) : (
+          <RotateCcw size={12} color="var(--accent-amber)" className="spin-slow" />
+        )}
+
+        <strong
+          style={{
+            color: isConverged ? 'var(--accent-emerald)' : 'var(--accent-amber)',
+            fontSize: '11px',
+            letterSpacing: '0.4px',
+          }}
+        >
+          {isConverged ? 'STABLE' : 'CONVERGING'}
+        </strong>
 
         <span
-          className={`badge ${isConverged ? 'badge-active' : 'badge-flapping'}`}
-          style={{ fontSize: '10px' }}
+          style={{
+            color: 'var(--text-muted)',
+            fontSize: '10.5px',
+            fontFamily: 'var(--font-mono)',
+            marginLeft: '2px',
+          }}
         >
-          {isConverged ? '\u2713 Stable' : '\u27F3 Converging'}
+          Tick #{currentTick}
         </span>
       </div>
 
-      {/* Protocol Trigger */}
+      <div style={{ width: 1, height: 18, background: 'var(--border-subtle)', margin: '0 2px' }} />
+
+      {/* Protocol Trigger Action Button */}
       <button
-        className="btn btn-secondary"
-        style={{ fontSize: '11px', padding: '6px 10px' }}
-        onClick={() => {
-          if (mode === 'LSR') {
-            lsrEngine.originateAll(currentTick);
-          } else {
-            dvrEngine.advertiseAll(currentTick);
-          }
-          onStep();
+        className="btn"
+        style={{
+          fontSize: '11.5px',
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-full)',
+          height: 28,
+          background:
+            mode === 'LSR'
+              ? 'rgba(59, 139, 235, 0.14)'
+              : 'rgba(232, 122, 80, 0.14)',
+          border: `1px solid ${
+            mode === 'LSR'
+              ? 'rgba(59, 139, 235, 0.35)'
+              : 'rgba(232, 122, 80, 0.35)'
+          }`,
+          color: mode === 'LSR' ? '#1D64B5' : '#9E4D2B',
+          fontWeight: 600,
+          gap: '6px',
         }}
-        title={mode === 'LSR' ? 'Flood Link State Packets' : 'Send Distance Vector Updates'}
+        onClick={() => {
+          if (onBroadcast) {
+            onBroadcast();
+          } else {
+            if (mode === 'LSR') {
+              lsrEngine.originateAll(currentTick);
+            } else {
+              dvrEngine.advertiseAll(currentTick);
+            }
+            onStep();
+          }
+        }}
+        title={
+          mode === 'LSR'
+            ? 'Broadcast Link State Packets (LSP) across the topology'
+            : 'Broadcast Distance Vector advertisements to immediate neighbors'
+        }
       >
-        <Send size={12} /> {mode === 'LSR' ? 'Trigger LSA Flood' : 'Send DV Updates'}
+        <Send size={12} color={mode === 'LSR' ? '#1D64B5' : '#9E4D2B'} />
+        {mode === 'LSR' ? 'Trigger LSA Flood' : 'Broadcast Vectors'}
       </button>
     </div>
   );

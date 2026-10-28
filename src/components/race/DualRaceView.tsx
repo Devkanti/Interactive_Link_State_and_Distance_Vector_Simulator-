@@ -84,7 +84,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        background: '#040711',
+        background: 'var(--bg-primary)',
         overflow: 'hidden',
       }}
     >
@@ -102,7 +102,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           borderRight: 'none',
           borderTop: 'none',
           zIndex: 40,
-          background: 'rgba(9, 14, 26, 0.95)',
+          background: 'rgba(255, 255, 255, 0.88)',
         }}
       >
         {/* Left Side: LSR Live Summary */}
@@ -114,8 +114,8 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               gap: '6px',
               padding: '3px 10px',
               borderRadius: 'var(--radius-full)',
-              background: 'rgba(2, 132, 199, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              background: 'rgba(59, 139, 235, 0.15)',
+              border: '1px solid rgba(59, 139, 235, 0.35)',
             }}
           >
             <Radio size={13} color="var(--accent-cyan)" />
@@ -221,12 +221,12 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               gap: '6px',
               padding: '3px 10px',
               borderRadius: 'var(--radius-full)',
-              background: 'rgba(147, 51, 234, 0.15)',
-              border: '1px solid rgba(192, 132, 252, 0.3)',
+              background: 'rgba(232, 122, 80, 0.15)',
+              border: '1px solid rgba(232, 122, 80, 0.35)',
             }}
           >
-            <Radio size={13} color="var(--accent-purple)" />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-purple)' }}>
+            <Radio size={13} color="var(--accent-peach)" />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-peach)' }}>
               Distance Vector (RIP)
             </span>
           </div>
@@ -252,11 +252,12 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               left: 16,
               zIndex: 30,
               pointerEvents: 'none',
-              background: 'rgba(10, 24, 44, 0.85)',
+              background: 'rgba(255, 255, 255, 0.88)',
               padding: '6px 12px',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(59, 139, 235, 0.35)',
               backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 8px rgba(92, 50, 20, 0.08)',
             }}
           >
             <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-cyan)' }}>
@@ -293,7 +294,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(0,0,0,0.8)',
+            boxShadow: '0 0 16px rgba(92, 50, 20, 0.15)',
             pointerEvents: 'none',
           }}
         >
@@ -316,14 +317,15 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               left: 16,
               zIndex: 30,
               pointerEvents: 'none',
-              background: 'rgba(23, 13, 40, 0.85)',
+              background: 'rgba(255, 255, 255, 0.88)',
               padding: '6px 12px',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(192, 132, 252, 0.3)',
+              border: '1px solid rgba(232, 122, 80, 0.35)',
               backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 8px rgba(92, 50, 20, 0.08)',
             }}
           >
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-purple)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-peach)' }}>
               Distance Vector Engine
             </div>
             <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>

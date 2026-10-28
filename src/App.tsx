@@ -30,6 +30,7 @@ import {
   Monitor,
   BarChart2,
   BookOpen,
+  Radio,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -52,14 +53,16 @@ export const App: React.FC = () => {
   const [currentTick, setCurrentTick] = useState(0);
   const [maxTick, setMaxTick] = useState(0);
   const [protocolMode, setProtocolMode] = useState<ProtocolMode>('LSR');
-  const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>('A');
+  const [selectedNodeId, setSelectedNodeId] = useState<NodeId | null>(null);
   const [viewLayout, setViewLayout] = useState<'single' | 'race'>('single');
   const [showHelp, setShowHelp] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showChaosPanel, setShowChaosPanel] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [showEduInspector, setShowEduInspector] = useState(false);
+  const [showPacketTracer, setShowPacketTracer] = useState(false);
   const [activePresetName, setActivePresetName] = useState('Diamond Multi-Path');
+  const [simVersion, setSimVersion] = useState(0);
 
   const packetTracer = useMemo(() => {
     return new PacketTracer(graph, (nodeId) => {
@@ -180,12 +183,26 @@ export const App: React.FC = () => {
     });
   }, [clock, graph, chaosEngine, lsrEngine, dvrEngine, packetTracer, metricsCollector, captureSnapshot]);
 
+  // Broadcast / Flood button handler (populates in-flight packets and triggers canvas re-render)
+  const handleBroadcast = useCallback(() => {
+    if (protocolMode === 'LSR') {
+      lsrEngine.originateAll(currentTick);
+    } else {
+      dvrEngine.advertiseAll(currentTick);
+    }
+    const desc = protocolMode === 'LSR' ? 'LSA Flood Triggered' : 'Distance Vectors Broadcast';
+    metricsCollector.sampleTick(currentTick, desc);
+    captureSnapshot(currentTick, desc, true);
+    setSimVersion((v) => v + 1);
+  }, [protocolMode, lsrEngine, dvrEngine, currentTick, metricsCollector, captureSnapshot]);
+
   // Initialize protocol engines & record initial snapshot at tick 0 on mount
   useEffect(() => {
     lsrEngine.originateAll(0);
     dvrEngine.advertiseAll(0);
     metricsCollector.sampleTick(0, 'Simulation Initialized');
     captureSnapshot(0, 'Simulation Initialized', true);
+    setSimVersion((v) => v + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,6 +226,7 @@ export const App: React.FC = () => {
 
     metricsCollector.sampleTick(0, `Preset Loaded: ${presetName}`);
     captureSnapshot(0, `Preset Loaded: ${presetName}`, true);
+    setSimVersion((v) => v + 1);
 
     if (snapshot.nodes.length > 0) {
       setSelectedNodeId(snapshot.nodes[0].id);
@@ -235,6 +253,7 @@ export const App: React.FC = () => {
 
     metricsCollector.sampleTick(0, 'Simulation Reset');
     captureSnapshot(0, 'Simulation Reset', true);
+    setSimVersion((v) => v + 1);
   };
 
   return (
@@ -253,30 +272,32 @@ export const App: React.FC = () => {
           borderRight: 'none',
           borderTop: 'none',
           zIndex: 50,
+          background: 'rgba(255, 255, 255, 0.88)',
+          boxShadow: '0 2px 10px rgba(92, 50, 20, 0.06)',
         }}
       >
         {/* Brand / Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-sm)',
-              background: 'linear-gradient(135deg, #0284c7, #6366f1)',
+              width: 34,
+              height: 34,
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, #E87A50, #94C8FD)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--glow-cyan)',
+              boxShadow: '0 2px 10px rgba(232, 122, 80, 0.35)',
             }}
           >
-            <Network size={18} color="#fff" />
+            <Network size={19} color="#ffffff" />
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, color: 'var(--text-primary)' }}>
               Routing<span style={{ color: 'var(--accent-cyan)' }}>Simulator</span>
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '-2px' }}>
-              Interactive LSR & DVR Convergence Platform
+            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+              LSR (OSPF) vs DVR (RIP) Comparative Engine
             </div>
           </div>
         </div>
@@ -288,7 +309,7 @@ export const App: React.FC = () => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'rgba(0, 0, 0, 0.5)',
+              background: 'rgba(254, 239, 229, 0.75)',
               padding: '3px',
               borderRadius: 'var(--radius-full)',
               border: '1px solid var(--border-subtle)',
@@ -314,45 +335,46 @@ export const App: React.FC = () => {
                 padding: '4px 12px',
                 borderRadius: 'var(--radius-full)',
                 height: 28,
-                background: viewLayout === 'race' ? 'linear-gradient(135deg, #0284c7, #9333ea)' : undefined,
-                boxShadow: viewLayout === 'race' ? '0 0 10px rgba(147, 51, 234, 0.4)' : undefined,
+                background: viewLayout === 'race' ? 'linear-gradient(135deg, #E87A50, #3B8BEB)' : undefined,
+                boxShadow: viewLayout === 'race' ? '0 2px 10px rgba(59, 139, 235, 0.35)' : undefined,
               }}
             >
               <Columns size={13} /> Dual Race Mode
             </button>
           </div>
 
-          <div
+          {/* Interactive Preset Selector Pill */}
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowPresetModal(true)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(0, 0, 0, 0.4)',
-              padding: '5px 12px',
+              fontSize: '12px',
+              padding: '4px 14px',
               borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border-subtle)',
+              background: 'rgba(255, 255, 255, 0.88)',
+              border: '1px solid var(--border-strong)',
+              height: 32,
+              gap: '6px',
             }}
+            title="Click to Switch Network Topology Presets"
           >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: 'var(--accent-cyan)',
-                boxShadow: 'var(--glow-cyan)',
-              }}
-            />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Topology: {activePresetName}
-            </span>
-            <span className="badge badge-active" style={{ fontSize: '10px' }}>
-              Phase 4
-            </span>
-          </div>
+            <Layers size={13} color="var(--accent-cyan)" />
+            <span style={{ color: 'var(--text-secondary)' }}>Topology:</span>
+            <strong style={{ color: 'var(--text-primary)' }}>{activePresetName}</strong>
+          </button>
         </div>
 
         {/* Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className={`btn ${showPacketTracer ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowPacketTracer(!showPacketTracer)}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Toggle Live Hop-by-Hop Packet Tracer"
+          >
+            <Radio size={14} color={showPacketTracer ? '#fff' : 'var(--accent-cyan)'} /> Tracer
+          </button>
+
           <button
             className={`btn ${showEduInspector ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowEduInspector(!showEduInspector)}
@@ -381,14 +403,6 @@ export const App: React.FC = () => {
           </button>
 
           <button
-            className="btn btn-primary"
-            onClick={() => setShowPresetModal(true)}
-            style={{ fontSize: '12px', padding: '6px 12px' }}
-          >
-            <Layers size={14} /> Presets & Mesh
-          </button>
-
-          <button
             className="btn btn-secondary btn-icon"
             onClick={() => setShowHelp(!showHelp)}
             title="Canvas Controls Help"
@@ -399,7 +413,8 @@ export const App: React.FC = () => {
           <button
             className="btn btn-secondary"
             onClick={() => handleLoadSnapshot(createDiamondMultiPath(), 'Diamond Multi-Path')}
-            style={{ fontSize: '12px' }}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            title="Reset Simulation to Initial State"
           >
             <RotateCcw size={14} /> Reset
           </button>
@@ -418,12 +433,14 @@ export const App: React.FC = () => {
               mode={protocolMode}
               onModeChange={setProtocolMode}
               onStep={handleStepTick}
+              onBroadcast={handleBroadcast}
               onReset={handleResetSimulation}
               currentTick={currentTick}
             />
 
             {/* Interactive Topology Canvas */}
             <TopologyCanvas
+              key={`canvas-${protocolMode}-${simVersion}`}
               graph={graph}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}
@@ -433,13 +450,16 @@ export const App: React.FC = () => {
               canvasTheme={protocolMode === 'LSR' ? 'lsr' : 'dvr'}
             />
 
-            {/* Live Packet Tracer Control Bar */}
-            <PacketTracerBar
-              packetTracer={packetTracer}
-              graph={graph}
-              currentTick={currentTick}
-              onSendPing={handleStepTick}
-            />
+            {/* Live Packet Tracer Control Bar (Floats cleanly when toggled) */}
+            {showPacketTracer && (
+              <PacketTracerBar
+                packetTracer={packetTracer}
+                graph={graph}
+                currentTick={currentTick}
+                onSendPing={handleStepTick}
+                onClose={() => setShowPacketTracer(false)}
+              />
+            )}
           </>
         ) : (
           <DualRaceView

@@ -333,6 +333,7 @@ export class LinkStateEngine {
     lsdb: Record<NodeId, Record<NodeId, unknown>>;
     routingTables: Record<NodeId, RoutingTable>;
     sequenceNumbers: Record<NodeId, number>;
+    inFlightPackets: InFlightLSPPacket[];
   } {
     const lsdbExport: Record<NodeId, Record<NodeId, unknown>> = {};
     for (const [nodeId, map] of this.nodeLSDBs.entries()) {
@@ -349,6 +350,7 @@ export class LinkStateEngine {
       lsdb: lsdbExport,
       routingTables: this.getAllRoutingTables(),
       sequenceNumbers: seqExport,
+      inFlightPackets: this.inFlightPackets.map((p) => ({ ...p, packet: { ...p.packet } })),
     };
   }
 
@@ -356,6 +358,7 @@ export class LinkStateEngine {
     lsdb: Record<NodeId, Record<NodeId, unknown>>;
     routingTables: Record<NodeId, RoutingTable>;
     sequenceNumbers: Record<NodeId, number>;
+    inFlightPackets?: InFlightLSPPacket[];
   }): void {
     this.nodeLSDBs.clear();
     for (const [nodeId, mapObj] of Object.entries(state.lsdb)) {
@@ -373,7 +376,7 @@ export class LinkStateEngine {
     for (const [nodeId, seq] of Object.entries(state.sequenceNumbers)) {
       this.nodeSequenceNumbers.set(nodeId, seq);
     }
-    this.inFlightPackets = [];
+    this.inFlightPackets = (state.inFlightPackets || []).map((p) => ({ ...p, packet: { ...p.packet } }));
     this.dirtyNodes.clear();
   }
 

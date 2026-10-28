@@ -95,6 +95,22 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
       .join(' ');
   }, [chartData.points]);
 
+  const lsrAreaPath = useMemo(() => {
+    if (chartData.points.length === 0) return '';
+    const base = padding.top + innerHeight;
+    const firstX = chartData.points[0].x;
+    const lastX = chartData.points[chartData.points.length - 1].x;
+    return `${lsrPath} L ${lastX.toFixed(1)} ${base} L ${firstX.toFixed(1)} ${base} Z`;
+  }, [chartData.points, lsrPath, padding.top, innerHeight]);
+
+  const dvrAreaPath = useMemo(() => {
+    if (chartData.points.length === 0) return '';
+    const base = padding.top + innerHeight;
+    const firstX = chartData.points[0].x;
+    const lastX = chartData.points[chartData.points.length - 1].x;
+    return `${dvrPath} L ${lastX.toFixed(1)} ${base} L ${firstX.toFixed(1)} ${base} Z`;
+  }, [chartData.points, dvrPath, padding.top, innerHeight]);
+
   const hoveredPoint =
     hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < chartData.points.length
       ? chartData.points[hoveredIndex]
@@ -122,30 +138,31 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(0, 0, 0, 0.4)',
-            padding: '2px',
+            background: 'rgba(0, 0, 0, 0.5)',
+            padding: '3px',
             borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border-subtle)',
+            gap: '2px',
           }}
         >
           <button
             className={`btn ${metric === 'cumulative' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setMetric('cumulative')}
-            style={{ fontSize: '10px', padding: '2px 8px', height: 22 }}
+            style={{ fontSize: '10px', padding: '3px 10px', height: 24, borderRadius: 'var(--radius-sm)' }}
           >
             Cumulative Packets
           </button>
           <button
             className={`btn ${metric === 'delta' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setMetric('delta')}
-            style={{ fontSize: '10px', padding: '2px 8px', height: 22 }}
+            style={{ fontSize: '10px', padding: '3px 10px', height: 24, borderRadius: 'var(--radius-sm)' }}
           >
             Packets / Tick
           </button>
           <button
             className={`btn ${metric === 'memory' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setMetric('memory')}
-            style={{ fontSize: '10px', padding: '2px 8px', height: 22 }}
+            style={{ fontSize: '10px', padding: '3px 10px', height: 24, borderRadius: 'var(--radius-sm)' }}
           >
             Memory (Bytes)
           </button>
@@ -157,10 +174,11 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
         style={{
           position: 'relative',
           width: '100%',
-          background: 'rgba(5, 8, 16, 0.75)',
+          background: 'rgba(254, 239, 229, 0.75)',
           borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
+          border: '1px solid var(--border-strong)',
           overflow: 'hidden',
+          boxShadow: 'inset 0 0 16px rgba(92, 50, 20, 0.05)',
         }}
       >
         <svg
@@ -168,6 +186,17 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
           style={{ width: '100%', height: 'auto', display: 'block' }}
           onMouseLeave={() => setHoveredIndex(null)}
         >
+          <defs>
+            <linearGradient id="lsrAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3B8BEB" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#3B8BEB" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="dvrAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#E87A50" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#E87A50" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
             const y = padding.top + innerHeight * (1 - pct);
@@ -179,7 +208,7 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
                   y1={y}
                   x2={width - padding.right}
                   y2={y}
-                  stroke="rgba(255, 255, 255, 0.07)"
+                  stroke="rgba(220, 165, 135, 0.3)"
                   strokeDasharray="4 4"
                 />
                 <text
@@ -196,9 +225,9 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
             );
           })}
 
-          {/* Event markers (disruptions/link severs) */}
+          {/* Subtle Event markers (disruptions/link severs) - skip initial tick 0 clutter */}
           {chartData.points.map((p) => {
-            if (!p.eventDescription) return null;
+            if (!p.eventDescription || p.tick === 0) return null;
             return (
               <g key={`event-${p.tick}`}>
                 <line
@@ -207,14 +236,22 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
                   x2={p.x}
                   y2={padding.top + innerHeight}
                   stroke="var(--accent-rose)"
-                  strokeWidth="1.5"
-                  strokeDasharray="2 2"
-                  opacity="0.8"
+                  strokeWidth="1.2"
+                  strokeDasharray="3 3"
+                  opacity="0.5"
                 />
                 <circle cx={p.x} cy={padding.top + 4} r="3" fill="var(--accent-rose)" />
               </g>
             );
           })}
+
+          {/* Area Fills */}
+          {lsrAreaPath && (
+            <path d={lsrAreaPath} fill="url(#lsrAreaGrad)" />
+          )}
+          {dvrAreaPath && (
+            <path d={dvrAreaPath} fill="url(#dvrAreaGrad)" />
+          )}
 
           {/* LSR Series Line (Cyan) */}
           {lsrPath && (
@@ -223,7 +260,7 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
               fill="none"
               stroke="var(--accent-cyan)"
               strokeWidth="2.5"
-              style={{ filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.45))' }}
+              style={{ filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.5))' }}
             />
           )}
 
@@ -234,9 +271,33 @@ export const ConvergenceChart: React.FC<ConvergenceChartProps> = ({
               fill="none"
               stroke="var(--accent-purple)"
               strokeWidth="2.5"
-              style={{ filter: 'drop-shadow(0 0 6px rgba(192, 132, 252, 0.45))' }}
+              style={{ filter: 'drop-shadow(0 0 6px rgba(192, 132, 252, 0.5))' }}
             />
           )}
+
+          {/* Data Points Glowing Nodes */}
+          {chartData.points.map((p) => (
+            <g key={`dots-${p.tick}`}>
+              <circle
+                cx={p.x}
+                cy={p.yLsr}
+                r="3.5"
+                fill="var(--accent-cyan)"
+                stroke="#090e1c"
+                strokeWidth="1.5"
+                style={{ filter: 'drop-shadow(0 0 4px rgba(56, 189, 248, 0.8))' }}
+              />
+              <circle
+                cx={p.x}
+                cy={p.yDvr}
+                r="3.5"
+                fill="var(--accent-purple)"
+                stroke="#090e1c"
+                strokeWidth="1.5"
+                style={{ filter: 'drop-shadow(0 0 4px rgba(192, 132, 252, 0.8))' }}
+              />
+            </g>
+          ))}
 
           {/* Hover Crosshair & Data Tooltip */}
           {hoveredPoint && (

@@ -61,7 +61,7 @@ export const PresetModal: React.FC<PresetModalProps> = ({
           style={{
             display: 'flex',
             gap: '8px',
-            background: 'rgba(0, 0, 0, 0.4)',
+            background: 'rgba(254, 239, 229, 0.75)',
             padding: '4px',
             borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border-subtle)',
@@ -130,8 +130,8 @@ export const PresetModal: React.FC<PresetModalProps> = ({
                         key={tag}
                         style={{
                           fontSize: '10px',
-                          color: 'var(--text-muted)',
-                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--text-secondary)',
+                          background: 'rgba(254, 226, 207, 0.65)',
                           padding: '2px 6px',
                           borderRadius: 'var(--radius-sm)',
                         }}

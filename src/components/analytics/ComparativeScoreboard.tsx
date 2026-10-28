@@ -56,9 +56,9 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
         flexDirection: 'column',
         gap: '20px',
         padding: '24px',
-        background: 'rgba(9, 14, 28, 0.96)',
+        background: 'rgba(255, 255, 255, 0.96)',
         border: '1px solid var(--border-strong)',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.15)',
+        boxShadow: '0 20px 50px rgba(92, 50, 20, 0.16), 0 0 20px rgba(148, 200, 253, 0.25)',
       }}
     >
       {/* Modal Header */}
@@ -77,17 +77,17 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
               width: 34,
               height: 34,
               borderRadius: 'var(--radius-sm)',
-              background: 'linear-gradient(135deg, #0284c7, #9333ea)',
+              background: 'linear-gradient(135deg, #E87A50, #94C8FD)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(147, 51, 234, 0.4)',
+              boxShadow: '0 0 12px rgba(232, 122, 80, 0.35)',
             }}
           >
             <Trophy size={18} color="#fff" />
           </div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 800 }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
               Real-Time Comparative Analytics Scoreboard
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -111,7 +111,7 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
           gap: '14px',
         }}
       >
@@ -119,40 +119,54 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
         <div
           className="glass-panel"
           style={{
-            padding: '14px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            background: 'rgba(15, 23, 42, 0.65)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
+            gap: '10px',
+            background: 'rgba(254, 239, 229, 0.85)',
+            border: '1px solid rgba(59, 139, 235, 0.3)',
+            borderRadius: 'var(--radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               CONVERGENCE TIME
             </span>
-            <Gauge size={14} color="var(--accent-cyan)" />
+            <Gauge size={15} color="var(--accent-cyan)" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-cyan)' }}>
-              {lsrRecoveryDuration} <span style={{ fontSize: '11px', fontWeight: 500 }}>ticks</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="badge badge-lsr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                LSR
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                {lsrRecoveryDuration} <span style={{ fontSize: '10px', fontWeight: 500 }}>ticks</span>
+              </span>
             </div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>vs</span>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-purple)' }}>
-              {dvrRecoveryDuration} <span style={{ fontSize: '11px', fontWeight: 500 }}>ticks</span>
+
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>vs</span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span className="badge badge-dvr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                DVR
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-purple)', fontFamily: 'var(--font-mono)' }}>
+                {dvrRecoveryDuration} <span style={{ fontSize: '10px', fontWeight: 500 }}>ticks</span>
+              </span>
             </div>
           </div>
 
           <div
             style={{
               fontSize: '10px',
-              padding: '2px 8px',
+              padding: '3px 8px',
               borderRadius: 'var(--radius-full)',
-              background: 'rgba(2, 132, 199, 0.15)',
-              color: 'var(--accent-cyan)',
-              fontWeight: 600,
-              width: 'fit-content',
+              background: 'rgba(148, 200, 253, 0.25)',
+              color: '#1D64B5',
+              fontWeight: 700,
+              border: '1px solid rgba(148, 200, 253, 0.6)',
+              textAlign: 'center',
             }}
           >
             {speedWinnerBadge}
@@ -163,33 +177,50 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
         <div
           className="glass-panel"
           style={{
-            padding: '14px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            background: 'rgba(15, 23, 42, 0.65)',
-            border: '1px solid rgba(192, 132, 252, 0.25)',
+            gap: '10px',
+            background: 'rgba(254, 239, 229, 0.85)',
+            border: '1px solid rgba(232, 122, 80, 0.3)',
+            borderRadius: 'var(--radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               PACKET OVERHEAD
             </span>
-            <Zap size={14} color="var(--accent-purple)" />
+            <Zap size={15} color="var(--accent-purple)" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-cyan)' }}>
-              {summary.lsrTotalMessages}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="badge badge-lsr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                LSR FLOOD
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                {summary.lsrTotalMessages} <span style={{ fontSize: '10px', fontWeight: 500 }}>pkts</span>
+              </span>
             </div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>vs</span>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-purple)' }}>
-              {summary.dvrTotalMessages}
+
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>vs</span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span className="badge badge-dvr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                DVR VECTOR
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-purple)', fontFamily: 'var(--font-mono)' }}>
+                {summary.dvrTotalMessages} <span style={{ fontSize: '10px', fontWeight: 500 }}>pkts</span>
+              </span>
             </div>
           </div>
 
-          <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-            Cumulative protocol messages flooded vs vectors exchanged
+          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', lineHeight: 1.4, textAlign: 'center' }}>
+            {summary.lsrTotalMessages < summary.dvrTotalMessages
+              ? `⚡ LSR generated ${(summary.dvrTotalMessages - summary.lsrTotalMessages)} fewer packets`
+              : summary.dvrTotalMessages < summary.lsrTotalMessages
+              ? `⚡ DVR generated ${(summary.lsrTotalMessages - summary.dvrTotalMessages)} fewer packets`
+              : 'Equal control traffic flooded across subnet'}
           </div>
         </div>
 
@@ -197,33 +228,50 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
         <div
           className="glass-panel"
           style={{
-            padding: '14px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            background: 'rgba(15, 23, 42, 0.65)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
+            gap: '10px',
+            background: 'rgba(254, 239, 229, 0.85)',
+            border: '1px solid rgba(31, 163, 126, 0.3)',
+            borderRadius: 'var(--radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
               MEMORY FOOTPRINT
             </span>
-            <HardDrive size={14} color="var(--accent-emerald)" />
+            <HardDrive size={15} color="var(--accent-emerald)" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-cyan)' }}>
-              {lsrMem} <span style={{ fontSize: '11px', fontWeight: 500 }}>B</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="badge badge-lsr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                LSDB TOTAL
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                {lsrMem} <span style={{ fontSize: '10px', fontWeight: 500 }}>B</span>
+              </span>
             </div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>vs</span>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-purple)' }}>
-              {dvrMem} <span style={{ fontSize: '11px', fontWeight: 500 }}>B</span>
+
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>vs</span>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span className="badge badge-dvr" style={{ fontSize: '9px', padding: '1px 5px', width: 'fit-content', marginBottom: '2px' }}>
+                DV STATE
+              </span>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-purple)', fontFamily: 'var(--font-mono)' }}>
+                {dvrMem} <span style={{ fontSize: '10px', fontWeight: 500 }}>B</span>
+              </span>
             </div>
           </div>
 
-          <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-            LSDB total size vs Distance Vector state across subnet
+          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', lineHeight: 1.4, textAlign: 'center' }}>
+            {lsrMem < dvrMem
+              ? `⚡ LSR is ${(100 - (lsrMem / dvrMem) * 100).toFixed(0)}% leaner in table memory`
+              : dvrMem < lsrMem
+              ? `⚡ DVR is ${(100 - (dvrMem / lsrMem) * 100).toFixed(0)}% leaner in table memory`
+              : 'Equal memory consumption across nodes'}
           </div>
         </div>
 
@@ -231,22 +279,23 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
         <div
           className="glass-panel"
           style={{
-            padding: '14px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            background: 'rgba(15, 23, 42, 0.65)',
+            gap: '10px',
+            background: 'rgba(254, 239, 229, 0.85)',
             border: `1px solid ${
-              summary.totalLoopTicks > 0 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(255, 255, 255, 0.1)'
+              summary.totalLoopTicks > 0 ? 'rgba(225, 71, 90, 0.45)' : 'rgba(31, 163, 126, 0.3)'
             }`,
+            borderRadius: 'var(--radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-              ROUTING INCONSISTENCIES
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+              ROUTING STABILITY
             </span>
             <AlertTriangle
-              size={14}
+              size={15}
               color={summary.totalLoopTicks > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'}
             />
           </div>
@@ -254,8 +303,9 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <div
               style={{
-                fontSize: '20px',
+                fontSize: '22px',
                 fontWeight: 800,
+                fontFamily: 'var(--font-mono)',
                 color: summary.totalLoopTicks > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
               }}
             >
@@ -264,10 +314,24 @@ export const ComparativeScoreboard: React.FC<ComparativeScoreboardProps> = ({
             </div>
           </div>
 
-          <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              padding: '3px 8px',
+              borderRadius: 'var(--radius-full)',
+              background:
+                summary.totalLoopTicks > 0 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+              color: summary.totalLoopTicks > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+              fontWeight: 700,
+              border: `1px solid ${
+                summary.totalLoopTicks > 0 ? 'rgba(244, 63, 94, 0.3)' : 'rgba(16, 185, 129, 0.3)'
+              }`,
+              textAlign: 'center',
+            }}
+          >
             {summary.currentActiveLoops > 0
               ? `⚠ ${summary.currentActiveLoops} active cycle(s) in DVR`
-              : 'Zero active loops detected'}
+              : '✓ Zero routing loops detected'}
           </div>
         </div>
       </div>

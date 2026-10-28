@@ -105,22 +105,28 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     [pan, zoom]
   );
 
-  // Zoom Controls
-  const handleZoom = (delta: number, clientX?: number, clientY?: number) => {
+  // Zoom Controls: Zooms smoothly around a focal point (or viewport center if invoked via button)
+  const handleZoom = useCallback((delta: number, clientX?: number, clientY?: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+
+    // Default focal point to the center of the viewport when clicking Zoom In / Zoom Out buttons
+    const focalX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
+    const focalY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+
     setZoom((prevZoom) => {
-      const newZoom = Math.min(2.5, Math.max(0.3, prevZoom + delta));
-      if (clientX !== undefined && clientY !== undefined && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const mouseX = clientX - rect.left;
-        const mouseY = clientY - rect.top;
-        setPan((prevPan) => ({
-          x: mouseX - (mouseX - prevPan.x) * (newZoom / prevZoom),
-          y: mouseY - (mouseY - prevPan.y) * (newZoom / prevZoom),
-        }));
-      }
+      const newZoom = Math.min(2.5, Math.max(0.3, Number((prevZoom + delta).toFixed(2))));
+      if (newZoom === prevZoom) return prevZoom;
+
+      const factor = newZoom / prevZoom;
+      setPan((prevPan) => ({
+        x: focalX - (focalX - prevPan.x) * factor,
+        y: focalY - (focalY - prevPan.y) * factor,
+      }));
+
       return newZoom;
     });
-  };
+  }, []);
 
   const handleZoomToFit = useCallback(() => {
     if (nodes.length === 0 || !containerRef.current) return;
@@ -150,7 +156,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
-    setZoom(fitZoom);
+    setZoom(Number(fitZoom.toFixed(2)));
     setPan({
       x: rect.width / 2 - centerX * fitZoom,
       y: rect.height / 2 - centerY * fitZoom,
@@ -158,10 +164,29 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   }, [nodes]);
 
   const handleResetView = () => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || nodes.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
-    setZoom(1);
-    setPan({ x: rect.width / 2 - 250, y: rect.height / 2 - 200 });
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const node of nodes) {
+      minX = Math.min(minX, node.x);
+      maxX = Math.max(maxX, node.x);
+      minY = Math.min(minY, node.y);
+      maxY = Math.max(maxY, node.y);
+    }
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    setZoom(1.0);
+    setPan({
+      x: rect.width / 2 - centerX,
+      y: rect.height / 2 - centerY,
+    });
   };
 
   // Center once on initial mount if nodes exist
@@ -174,7 +199,6 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   // Wheel Zoom
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     handleZoom(delta, e.clientX, e.clientY);
   };
@@ -381,10 +405,10 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         overflow: 'hidden',
         background:
           canvasTheme === 'lsr'
-            ? 'radial-gradient(circle at 50% 50%, #0a182c 0%, #040913 100%)'
+            ? 'radial-gradient(circle at 50% 50%, #FAF6F0 0%, #F5ECE3 60%, #EFE1D3 100%)'
             : canvasTheme === 'dvr'
-            ? 'radial-gradient(circle at 50% 50%, #170d28 0%, #090513 100%)'
-            : 'radial-gradient(circle at 50% 50%, #0d1527 0%, #070a12 100%)',
+            ? 'radial-gradient(circle at 50% 50%, #FAF4EE 0%, #F8EBE0 60%, #EFE0D2 100%)'
+            : 'radial-gradient(circle at 50% 50%, #FAF5EF 0%, #F7EDE3 60%, #EFE1D4 100%)',
         cursor: isPanning ? 'grabbing' : connecting ? 'crosshair' : 'default',
         userSelect: 'none',
       }}
@@ -413,10 +437,10 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               r="1"
               fill={
                 canvasTheme === 'lsr'
-                  ? 'rgba(56, 189, 248, 0.12)'
+                  ? 'rgba(59, 139, 235, 0.25)'
                   : canvasTheme === 'dvr'
-                  ? 'rgba(192, 132, 252, 0.12)'
-                  : 'rgba(255, 255, 255, 0.07)'
+                  ? 'rgba(232, 122, 80, 0.25)'
+                  : 'rgba(210, 145, 110, 0.25)'
               }
             />
           </pattern>
@@ -433,6 +457,33 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           height: '100%',
         }}
       >
+        <defs>
+          {/* Router Node Radial Gradients */}
+          <radialGradient id="routerGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="100%" stopColor="#FEE2CF" />
+          </radialGradient>
+          <radialGradient id="routerCrashedGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#FEE2E2" />
+            <stop offset="100%" stopColor="#FCA5A5" />
+          </radialGradient>
+          <radialGradient id="routerSelectedGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#94C8FD" />
+            <stop offset="100%" stopColor="#3B8BEB" />
+          </radialGradient>
+
+          {/* Packet streaming linear gradients */}
+          <linearGradient id="packetStreamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3B8BEB" stopOpacity="0.85" />
+            <stop offset="50%" stopColor="#60A5FA" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.85" />
+          </linearGradient>
+          <linearGradient id="packetStreamGradDvr" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#E87A50" stopOpacity="0.85" />
+            <stop offset="50%" stopColor="#F97316" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#FED7AA" stopOpacity="0.85" />
+          </linearGradient>
+        </defs>
         <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
           {/* Edges Layer */}
           {edges.map((edge) => {
@@ -449,7 +500,22 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               ? 'var(--accent-rose)'
               : isFlapping
               ? 'var(--accent-amber)'
-              : 'rgba(56, 189, 248, 0.55)';
+              : 'rgba(59, 139, 235, 0.75)';
+
+            // Detect if this edge has active in-flight traffic
+            const hasInFlightLSR = inFlightLSPs.some(
+              (p) =>
+                p.edgeId === edge.id ||
+                (p.sourceNodeId === edge.source && p.targetNodeId === edge.target) ||
+                (p.sourceNodeId === edge.target && p.targetNodeId === edge.source)
+            );
+            const hasInFlightDVR = inFlightDVMessages.some(
+              (p) =>
+                p.edgeId === edge.id ||
+                (p.sourceNodeId === edge.source && p.targetNodeId === edge.target) ||
+                (p.sourceNodeId === edge.target && p.targetNodeId === edge.source)
+            );
+            const hasInFlight = hasInFlightLSR || hasInFlightDVR;
 
             return (
               <g key={edge.id} onContextMenu={(e) => handleEdgeContextMenu(e, edge)}>
@@ -475,10 +541,24 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                   strokeWidth="2.5"
                   strokeDasharray={isDown ? '6 6' : isFlapping ? '8 4' : undefined}
                   style={{
-                    filter: isDown ? 'none' : 'drop-shadow(0 0 4px rgba(56, 189, 248, 0.4))',
+                    filter: isDown ? 'none' : 'drop-shadow(0 0 5px rgba(148, 200, 253, 0.55))',
                     transition: 'stroke 0.2s',
                   }}
                 />
+
+                {/* Active Flow Animation Line when In-Flight Packets Transmit */}
+                {hasInFlight && !isDown && (
+                  <line
+                    x1={source.x}
+                    y1={source.y}
+                    x2={target.x}
+                    y2={target.y}
+                    stroke={hasInFlightLSR ? 'url(#packetStreamGrad)' : 'url(#packetStreamGradDvr)'}
+                    strokeWidth="3.5"
+                    className="edge-stream-active"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
 
                 {/* Metric Badge in Center */}
                 <g
@@ -487,22 +567,22 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                   style={{ cursor: 'pointer' }}
                 >
                   <rect
-                    x="-18"
-                    y="-11"
-                    width="36"
-                    height="22"
-                    rx="11"
-                    fill={isDown ? '#4c0519' : '#0f172a'}
+                    x="-19"
+                    y="-12"
+                    width="38"
+                    height="24"
+                    rx="12"
+                    fill={isDown ? 'rgba(254, 226, 226, 0.96)' : 'rgba(255, 255, 255, 0.96)'}
                     stroke={strokeColor}
                     strokeWidth="1.5"
                     style={{
-                      filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.5))',
+                      filter: 'drop-shadow(0 2px 6px rgba(92, 50, 20, 0.15))',
                     }}
                   />
                   <text
                     textAnchor="middle"
                     dy="4"
-                    fill={isDown ? '#fda4af' : 'var(--text-primary)'}
+                    fill={isDown ? '#b91c1c' : 'var(--text-primary)'}
                     fontSize="11"
                     fontFamily="var(--font-mono)"
                     fontWeight="700"
@@ -561,67 +641,116 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                   />
                 )}
 
-                {/* Node Outer Circle */}
+                {/* Ambient Breathing Glow Ring for Active Nodes */}
+                {!isCrashed && (
+                  <circle
+                    r={radius + 4}
+                    fill="none"
+                    stroke="rgba(59, 139, 235, 0.28)"
+                    strokeWidth="1.5"
+                    className="router-node-ambient"
+                  />
+                )}
+
+                {/* Node Outer Circle with Radial Gradient */}
                 <circle
                   r={radius}
-                  fill={isCrashed ? '#270811' : '#0b1329'}
+                  fill={
+                    isCrashed
+                      ? 'url(#routerCrashedGrad)'
+                      : isSelected
+                      ? 'url(#routerSelectedGrad)'
+                      : 'url(#routerGrad)'
+                  }
                   stroke={
                     isCrashed
                       ? 'var(--accent-rose)'
                       : isSelected
                       ? 'var(--accent-cyan)'
-                      : 'rgba(56, 189, 248, 0.7)'
+                      : 'rgba(59, 139, 235, 0.75)'
                   }
-                  strokeWidth={isSelected ? '3' : '2'}
+                  strokeWidth={isSelected ? '2.5' : '1.8'}
                   style={{
                     filter: isCrashed
-                      ? 'drop-shadow(0 0 8px rgba(244, 63, 94, 0.4))'
-                      : 'drop-shadow(0 0 10px rgba(56, 189, 248, 0.35))',
+                      ? 'drop-shadow(0 0 10px rgba(225, 71, 90, 0.45))'
+                      : isSelected
+                      ? 'drop-shadow(0 0 14px rgba(148, 200, 253, 0.8))'
+                      : 'drop-shadow(0 4px 10px rgba(92, 50, 20, 0.12))',
                     transition: 'all 0.2s',
                   }}
                 />
 
-                {/* Router Symbol / Antenna Glyphs */}
-                <path
-                  d="M -10 -2 L 10 -2 M -10 3 L 10 3 M -5 -7 L -5 8 M 5 -7 L 5 8"
-                  stroke={isCrashed ? 'var(--accent-rose)' : 'var(--accent-cyan)'}
-                  strokeWidth="1.6"
+                {/* Authentic Cisco/IEEE Network Router Glyph (Bidirectional Flow Arrows) */}
+                <g
+                  stroke={
+                    isCrashed
+                      ? 'var(--accent-rose)'
+                      : isSelected
+                      ? '#ffffff'
+                      : 'var(--accent-cyan)'
+                  }
+                  strokeWidth="1.8"
                   strokeLinecap="round"
-                />
-
-                {/* Status Dot */}
-                <circle
-                  cx="16"
-                  cy="-16"
-                  r="5"
-                  fill={isCrashed ? 'var(--accent-rose)' : 'var(--accent-emerald)'}
-                  stroke="#0a0e17"
-                  strokeWidth="1.5"
-                />
-
-                {/* Node Label Badge */}
-                <g transform="translate(0, 36)">
-                  <rect
-                    x="-24"
-                    y="-9"
-                    width="48"
-                    height="18"
-                    rx="5"
-                    fill="rgba(15, 23, 42, 0.85)"
-                    stroke="var(--border-strong)"
-                    strokeWidth="1"
-                  />
-                  <text
-                    textAnchor="middle"
-                    dy="4"
-                    fill="var(--text-primary)"
-                    fontSize="11"
-                    fontFamily="var(--font-mono)"
-                    fontWeight="700"
-                  >
-                    {node.label}
-                  </text>
+                  strokeLinejoin="round"
+                  fill="none"
+                >
+                  {/* Top Arrow: Left-to-Right */}
+                  <path d="M -10 -3.5 L 10 -3.5" />
+                  <path d="M 6.5 -6.5 L 10 -3.5 L 6.5 -0.5" />
+                  {/* Bottom Arrow: Right-to-Left */}
+                  <path d="M 10 3.5 L -10 3.5" />
+                  <path d="M -6.5 0.5 L -10 3.5 L -6.5 6.5" />
                 </g>
+
+                {/* Status Dot with Glow */}
+                <circle
+                  cx="17"
+                  cy="-17"
+                  r="4.5"
+                  fill={isCrashed ? 'var(--accent-rose)' : 'var(--accent-emerald)'}
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  style={{
+                    filter: isCrashed
+                      ? 'drop-shadow(0 0 6px var(--accent-rose))'
+                      : 'drop-shadow(0 0 6px var(--accent-emerald))',
+                  }}
+                />
+
+                {/* Node Label Badge (Proper Dynamic Width, No Overflow) */}
+                {(() => {
+                  const labelText = node.label || `Router ${node.id}`;
+                  const badgeWidth = Math.max(64, labelText.length * 8 + 18);
+                  return (
+                    <g transform="translate(0, 38)">
+                      <rect
+                        x={-badgeWidth / 2}
+                        y="-11"
+                        width={badgeWidth}
+                        height="22"
+                        rx="11"
+                        fill="rgba(255, 255, 255, 0.95)"
+                        stroke={isSelected ? 'var(--accent-cyan)' : 'rgba(220, 165, 135, 0.45)'}
+                        strokeWidth={isSelected ? '1.5' : '1'}
+                        style={{
+                          backdropFilter: 'blur(6px)',
+                          filter: 'drop-shadow(0 2px 6px rgba(92, 50, 20, 0.12))',
+                        }}
+                      />
+                      <text
+                        textAnchor="middle"
+                        dy="4"
+                        fill={isSelected ? 'var(--accent-cyan)' : 'var(--text-primary)'}
+                        fontSize="11"
+                        fontFamily="var(--font-sans)"
+                        fontWeight="600"
+                        letterSpacing="0.2px"
+                      >
+                        {labelText}
+                      </text>
+                    </g>
+                  );
+                })()}
               </g>
             );
           })}
@@ -636,8 +765,13 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
             let posY = currNode.y;
 
             if (nextNode) {
-              posX = (currNode.x + nextNode.x) / 2;
-              posY = (currNode.y + nextNode.y) / 2;
+              const dx = nextNode.x - currNode.x;
+              const dy = nextNode.y - currNode.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const nx = -dy / len;
+              const ny = dx / len;
+              posX = (currNode.x + nextNode.x) / 2 + nx * 22;
+              posY = (currNode.y + nextNode.y) / 2 + ny * 22;
             }
 
             const isCycle = pkt.cycleDetected;
@@ -657,9 +791,15 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                     opacity: 0.8,
                   }}
                 />
+                {/* Radiating radar ripple */}
+                <circle r="9" fill="none" stroke={particleColor} strokeWidth="1.8">
+                  <animate attributeName="r" from="9" to="24" dur="1.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.8" to="0" dur="1.4s" repeatCount="indefinite" />
+                </circle>
+
                 {/* Core particle */}
                 <circle
-                  r="9"
+                  r="8.5"
                   fill={particleColor}
                   stroke="#ffffff"
                   strokeWidth="2"
@@ -667,23 +807,26 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                     filter: `drop-shadow(0 0 8px ${particleColor})`,
                   }}
                 />
-                {/* Label badge */}
-                <g transform="translate(0, -20)">
+                <circle r="2.5" fill="#ffffff" />
+
+                {/* Frosted pill badge */}
+                <g transform="translate(0, -18)" className="packet-float">
                   <rect
                     x="-32"
                     y="-9"
                     width="64"
                     height="18"
-                    rx="4"
-                    fill="rgba(15, 23, 42, 0.95)"
+                    rx="9"
+                    fill="rgba(255, 255, 255, 0.96)"
                     stroke={particleColor}
-                    strokeWidth="1.5"
+                    strokeWidth="1.4"
+                    style={{ filter: 'drop-shadow(0 2px 6px rgba(92, 50, 20, 0.15))' }}
                   />
                   <text
                     textAnchor="middle"
-                    dy="4"
-                    fill="#ffffff"
-                    fontSize="10"
+                    dy="3.5"
+                    fill="var(--text-primary)"
+                    fontSize="9.5"
                     fontFamily="var(--font-mono)"
                     fontWeight="700"
                   >
@@ -693,141 +836,245 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               </g>
             );
           })}
-          {/* In-Flight LSR LSP Packets Layer (Radiating Flooding) */}
-          {inFlightLSPs.map((item) => {
-            const srcNode = graph.getNode(item.sourceNodeId);
-            const tgtNode = graph.getNode(item.targetNodeId);
-            if (!srcNode || !tgtNode) return null;
+          {/* In-Flight LSR LSP Packets Layer (Separated non-overlapping flight lanes) */}
+          {(() => {
+            const pairCountMap = new Map<string, number>();
+            inFlightLSPs.forEach((item) => {
+              const key = `${item.sourceNodeId}->${item.targetNodeId}`;
+              pairCountMap.set(key, (pairCountMap.get(key) || 0) + 1);
+            });
+            const pairIndexMap = new Map<string, number>();
 
-            const prog = item.progress > 0 ? item.progress : 0.5;
-            const posX = srcNode.x + (tgtNode.x - srcNode.x) * prog;
-            const posY = srcNode.y + (tgtNode.y - srcNode.y) * prog;
-            const color = 'var(--accent-cyan)';
+            return inFlightLSPs.map((item) => {
+              const srcNode = graph.getNode(item.sourceNodeId);
+              const tgtNode = graph.getNode(item.targetNodeId);
+              if (!srcNode || !tgtNode) return null;
 
-            return (
-              <g key={`lsp-${item.packet.id}-${item.sourceNodeId}-${item.targetNodeId}`} transform={`translate(${posX}, ${posY})`}>
-                {/* Radiating wave */}
-                <circle
-                  r="18"
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="1.5"
-                  style={{
-                    filter: `drop-shadow(0 0 8px ${color})`,
-                    opacity: 0.7,
-                  }}
-                />
-                <circle
-                  r="8"
-                  fill={color}
-                  stroke="#ffffff"
-                  strokeWidth="2"
-                  style={{ filter: `drop-shadow(0 0 6px ${color})` }}
-                />
-                <g transform="translate(0, -18)">
+              const key = `${item.sourceNodeId}->${item.targetNodeId}`;
+              const totalInDir = pairCountMap.get(key) || 1;
+              const idxInDir = pairIndexMap.get(key) || 0;
+              pairIndexMap.set(key, idxInDir + 1);
+
+              // Vector from source to target router
+              const dx = tgtNode.x - srcNode.x;
+              const dy = tgtNode.y - srcNode.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const tx = dx / len;
+              const ty = dy / len;
+
+              // Unit right-hand normal vector (in SVG screen coords, right side of driver)
+              const rx = -ty;
+              const ry = tx;
+
+              // Stagger along flight lane if multiple packets exist in same direction
+              const staggerStep = Math.min(0.07, 0.20 / totalInDir);
+              const stagger = totalInDir > 1 ? (idxInDir - (totalInDir - 1) / 2) * staggerStep : 0;
+              const baseProg = item.progress > 0 ? 0.24 + item.progress * 0.52 : 0.32;
+              const prog = Math.max(0.18, Math.min(0.82, baseProg + stagger));
+
+              // Dedicated right-hand flight lane offset so opposite direction packets never collide with each other or edge cost
+              const laneOffset = 28;
+              const posX = srcNode.x + dx * prog + rx * laneOffset;
+              const posY = srcNode.y + dy * prog + ry * laneOffset;
+
+              const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+              const color = '#3B8BEB';
+              const badgeId = `lsp-${item.packet.id}-${item.sourceNodeId}-${item.targetNodeId}-${idxInDir}`;
+
+              return (
+                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float">
+                  {/* Radiating Radar Ripple Wave */}
+                  <circle cx="-20" cy="0" r="5" fill="none" stroke={color} strokeWidth="1.6">
+                    <animate attributeName="r" from="5" to="16" dur="1.5s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" from="0.8" to="0" dur="1.5s" repeatCount="indefinite" />
+                  </circle>
+
+                  {/* Sleek Frosted Capsule Pill Badge */}
                   <rect
                     x="-34"
-                    y="-9"
+                    y="-11"
                     width="68"
-                    height="18"
-                    rx="4"
-                    fill="rgba(8, 20, 36, 0.95)"
+                    height="22"
+                    rx="11"
+                    fill="rgba(255, 255, 255, 0.96)"
                     stroke={color}
-                    strokeWidth="1"
+                    strokeWidth="1.5"
+                    style={{
+                      backdropFilter: 'blur(8px)',
+                      filter: 'drop-shadow(0 3px 8px rgba(59, 139, 235, 0.28))',
+                    }}
                   />
+
+                  {/* Core Beacon Dot inside Pill */}
+                  <circle
+                    cx="-20"
+                    cy="0"
+                    r="5.5"
+                    fill={color}
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                    style={{ filter: `drop-shadow(0 0 5px ${color})` }}
+                  />
+                  <circle cx="-20" cy="0" r="2" fill="#ffffff" />
+
+                  {/* Label Text */}
                   <text
+                    x="2"
+                    y="0"
                     textAnchor="middle"
-                    dy="4"
-                    fill="#ffffff"
-                    fontSize="9"
+                    dy="3.5"
+                    fill="#1D64B5"
+                    fontSize="9.5"
                     fontFamily="var(--font-mono)"
                     fontWeight="700"
+                    letterSpacing="0.2px"
                   >
                     LSP #{item.packet.sequenceNumber}
                   </text>
+
+                  {/* Directional Chevron Pointer pointing to target router */}
+                  <g transform={`translate(22, 0) rotate(${angleDeg})`}>
+                    <polygon
+                      points="-3,-3 4,0 -3,3"
+                      fill={color}
+                    />
+                  </g>
                 </g>
-              </g>
-            );
-          })}
+              );
+            });
+          })()}
 
-          {/* In-Flight DVR Distance Vector Messages Layer (Periodic Neighbor Exchanges) */}
-          {inFlightDVMessages.map((item) => {
-            const srcNode = graph.getNode(item.sourceNodeId);
-            const tgtNode = graph.getNode(item.targetNodeId);
-            if (!srcNode || !tgtNode) return null;
+          {/* In-Flight DVR Distance Vector Messages Layer (Separated non-overlapping flight lanes) */}
+          {(() => {
+            const pairCountMap = new Map<string, number>();
+            inFlightDVMessages.forEach((item) => {
+              const key = `${item.sourceNodeId}->${item.targetNodeId}`;
+              pairCountMap.set(key, (pairCountMap.get(key) || 0) + 1);
+            });
+            const pairIndexMap = new Map<string, number>();
 
-            const prog = item.progress > 0 ? item.progress : 0.5;
-            const posX = srcNode.x + (tgtNode.x - srcNode.x) * prog;
-            const posY = srcNode.y + (tgtNode.y - srcNode.y) * prog;
-            const color = 'var(--accent-purple)';
+            return inFlightDVMessages.map((item) => {
+              const srcNode = graph.getNode(item.sourceNodeId);
+              const tgtNode = graph.getNode(item.targetNodeId);
+              if (!srcNode || !tgtNode) return null;
 
-            return (
-              <g key={`dv-${item.message.id}`} transform={`translate(${posX}, ${posY})`}>
-                <circle
-                  r="16"
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="1.5"
-                  strokeDasharray="3 3"
-                  style={{
-                    filter: `drop-shadow(0 0 8px ${color})`,
-                    opacity: 0.7,
-                  }}
-                />
-                <circle
-                  r="7.5"
-                  fill={color}
-                  stroke="#ffffff"
-                  strokeWidth="1.5"
-                  style={{ filter: `drop-shadow(0 0 6px ${color})` }}
-                />
-                <g transform="translate(0, -18)">
+              const key = `${item.sourceNodeId}->${item.targetNodeId}`;
+              const totalInDir = pairCountMap.get(key) || 1;
+              const idxInDir = pairIndexMap.get(key) || 0;
+              pairIndexMap.set(key, idxInDir + 1);
+
+              const dx = tgtNode.x - srcNode.x;
+              const dy = tgtNode.y - srcNode.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const tx = dx / len;
+              const ty = dy / len;
+
+              const rx = -ty;
+              const ry = tx;
+
+              const staggerStep = Math.min(0.07, 0.20 / totalInDir);
+              const stagger = totalInDir > 1 ? (idxInDir - (totalInDir - 1) / 2) * staggerStep : 0;
+              const baseProg = item.progress > 0 ? 0.24 + item.progress * 0.52 : 0.32;
+              const prog = Math.max(0.18, Math.min(0.82, baseProg + stagger));
+
+              const laneOffset = 28;
+              const posX = srcNode.x + dx * prog + rx * laneOffset;
+              const posY = srcNode.y + dy * prog + ry * laneOffset;
+
+              const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+              const color = '#E87A50';
+              const badgeId = `dv-${item.message.id}-${item.sourceNodeId}-${item.targetNodeId}-${idxInDir}`;
+              const routesCount = item.message.vector.length;
+              const labelText = `DV (${routesCount})`;
+              const pillWidth = Math.max(68, labelText.length * 7 + 24);
+
+              return (
+                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float">
+                  {/* Radiating Radar Ripple Wave */}
+                  <circle cx={-pillWidth / 2 + 14} cy="0" r="5" fill="none" stroke={color} strokeWidth="1.6">
+                    <animate attributeName="r" from="5" to="16" dur="1.5s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" from="0.8" to="0" dur="1.5s" repeatCount="indefinite" />
+                  </circle>
+
+                  {/* Sleek Frosted Capsule Pill Badge */}
                   <rect
-                    x="-32"
-                    y="-9"
-                    width="64"
-                    height="18"
-                    rx="4"
-                    fill="rgba(24, 8, 36, 0.95)"
+                    x={-pillWidth / 2}
+                    y="-11"
+                    width={pillWidth}
+                    height="22"
+                    rx="11"
+                    fill="rgba(255, 255, 255, 0.96)"
                     stroke={color}
-                    strokeWidth="1"
+                    strokeWidth="1.5"
+                    style={{
+                      backdropFilter: 'blur(8px)',
+                      filter: 'drop-shadow(0 3px 8px rgba(232, 122, 80, 0.28))',
+                    }}
                   />
+
+                  {/* Core Beacon Dot inside Pill */}
+                  <circle
+                    cx={-pillWidth / 2 + 14}
+                    cy="0"
+                    r="5.5"
+                    fill={color}
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                    style={{ filter: `drop-shadow(0 0 5px ${color})` }}
+                  />
+                  <circle cx={-pillWidth / 2 + 14} cy="0" r="2" fill="#ffffff" />
+
+                  {/* Label Text */}
                   <text
+                    x="2"
+                    y="0"
                     textAnchor="middle"
-                    dy="4"
-                    fill="#ffffff"
-                    fontSize="9"
+                    dy="3.5"
+                    fill="#9E4D2B"
+                    fontSize="9.5"
                     fontFamily="var(--font-mono)"
                     fontWeight="700"
+                    letterSpacing="0.2px"
                   >
-                    DV ({item.message.vector.length} routes)
+                    {labelText}
                   </text>
+
+                  {/* Directional Chevron Pointer pointing to target router */}
+                  <g transform={`translate(${pillWidth / 2 - 12}, 0) rotate(${angleDeg})`}>
+                    <polygon
+                      points="-3,-3 4,0 -3,3"
+                      fill={color}
+                    />
+                  </g>
                 </g>
-              </g>
-            );
-          })}
+              );
+            });
+          })()}
         </g>
       </svg>
 
-      {/* Floating Canvas Controls Toolbar */}
+      {/* Floating Canvas Controls Toolbar (Vertical Dock on Left - Prevents overlap with Scrubber) */}
       {showControls && (
         <div
           className="glass-panel"
           style={{
             position: 'absolute',
             bottom: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            left: 20,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 10px',
+            padding: '8px 6px',
             zIndex: 100,
+            boxShadow: 'var(--shadow-md)',
+            borderRadius: 'var(--radius-md)',
           }}
         >
+          {/* Tool Modes */}
           <button
             className={`btn ${toolMode === 'select' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
-            title="Select & Drag Mode"
+            title="Select & Move Tool"
             onClick={() => setToolMode('select')}
           >
             <Hand size={16} />
@@ -835,27 +1082,25 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
           <button
             className={`btn ${toolMode === 'link' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
-            title="Connect Link Mode (Drag between routers)"
+            title="Connect Link Tool (Drag between routers)"
             onClick={() => setToolMode(toolMode === 'link' ? 'select' : 'link')}
           >
             <Link2 size={16} />
           </button>
 
-          <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
-
           {!readOnly && (
             <button
-              className="btn btn-secondary"
-              title="Add New Router"
+              className="btn btn-secondary btn-icon"
+              title="Add New Router Node"
               onClick={handleAddRouter}
-              style={{ fontSize: '12px', padding: '6px 12px' }}
             >
-              <Plus size={16} /> Add Router
+              <Plus size={16} />
             </button>
           )}
 
-          <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 4px' }} />
+          <div style={{ width: 22, height: 1, background: 'var(--border-subtle)', margin: '2px 0' }} />
 
+          {/* Zoom & View Controls */}
           <button
             className="btn btn-secondary btn-icon"
             title="Zoom In"
@@ -882,7 +1127,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
           <button
             className="btn btn-secondary btn-icon"
-            title="Reset View"
+            title="Reset View (100%)"
             onClick={handleResetView}
           >
             <RotateCcw size={16} />
@@ -890,10 +1135,11 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
           <span
             style={{
-              fontSize: '11px',
+              fontSize: '10px',
               fontFamily: 'var(--font-mono)',
               color: 'var(--text-secondary)',
-              marginLeft: '6px',
+              marginTop: '2px',
+              fontWeight: 600,
             }}
           >
             {Math.round(zoom * 100)}%
