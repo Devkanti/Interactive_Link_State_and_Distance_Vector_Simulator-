@@ -625,6 +625,7 @@ export class DistanceVectorEngine {
   public exportState(): {
     routingTables: Record<NodeId, RoutingTable>;
     neighborVectors: Record<NodeId, Record<NodeId, Record<NodeId, number>>>;
+    inFlightMessages: InFlightDVMessage[];
   } {
     const nvExport: Record<NodeId, Record<NodeId, Record<NodeId, number>>> = {};
     for (const [nodeId, nTable] of this.neighborVectors.entries()) {
@@ -639,12 +640,17 @@ export class DistanceVectorEngine {
     return {
       routingTables: this.getAllRoutingTables(),
       neighborVectors: nvExport,
+      inFlightMessages: this.inFlightMessages.map((m) => ({
+        ...m,
+        message: { ...m.message, vector: [...m.message.vector] },
+      })),
     };
   }
 
   public restoreState(state: {
     routingTables: Record<NodeId, RoutingTable>;
     neighborVectors: Record<NodeId, Record<NodeId, Record<NodeId, number>>>;
+    inFlightMessages?: InFlightDVMessage[];
   }): void {
     this.routingTables.clear();
     for (const [nodeId, table] of Object.entries(state.routingTables)) {
@@ -663,7 +669,10 @@ export class DistanceVectorEngine {
       }
       this.neighborVectors.set(nodeId, neighborTable);
     }
-    this.inFlightMessages = [];
+    this.inFlightMessages = (state.inFlightMessages || []).map((m) => ({
+      ...m,
+      message: { ...m.message, vector: [...m.message.vector] },
+    }));
   }
 
   public reset(): void {

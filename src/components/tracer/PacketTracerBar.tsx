@@ -9,6 +9,7 @@ import {
   Flame,
   Radio,
   ArrowRight,
+  X,
 } from 'lucide-react';
 
 interface PacketTracerBarProps {
@@ -16,6 +17,7 @@ interface PacketTracerBarProps {
   graph: NetworkGraph;
   currentTick: number;
   onSendPing: () => void;
+  onClose?: () => void;
 }
 
 export const PacketTracerBar: React.FC<PacketTracerBarProps> = ({
@@ -23,6 +25,7 @@ export const PacketTracerBar: React.FC<PacketTracerBarProps> = ({
   graph,
   currentTick,
   onSendPing,
+  onClose,
 }) => {
   const nodes = graph.getNodes();
   const [sourceId, setSourceId] = useState<NodeId>(nodes[0]?.id || 'A');
@@ -41,20 +44,21 @@ export const PacketTracerBar: React.FC<PacketTracerBarProps> = ({
 
   return (
     <div
-      className="glass-panel"
+      className="glass-panel modal-card"
       style={{
         position: 'absolute',
-        bottom: 84,
+        bottom: 122,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 110,
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
-        padding: '10px 16px',
+        padding: '12px 18px',
         boxShadow: 'var(--shadow-lg)',
         border: '1px solid var(--border-accent)',
-        maxWidth: 680,
+        width: 'min(680px, calc(100vw - 48px))',
+        borderRadius: 'var(--radius-lg)',
       }}
     >
       {/* Top Controls Row */}
@@ -152,6 +156,18 @@ export const PacketTracerBar: React.FC<PacketTracerBarProps> = ({
         >
           <Send size={14} /> Send Ping
         </button>
+
+        {/* Optional Close Button */}
+        {onClose && (
+          <button
+            className="btn btn-secondary btn-icon"
+            onClick={onClose}
+            title="Close Packet Tracer"
+            style={{ padding: '6px', marginLeft: 'auto' }}
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {/* Live Status / Alerts Row */}

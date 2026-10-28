@@ -137,30 +137,53 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
       >
         {/* Instant 1-Click Fault Injections */}
         <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>
             Instant Fault Triggers
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <button
               className="btn btn-danger"
-              style={{ padding: '8px 10px', fontSize: '11px', justifyContent: 'flex-start' }}
+              style={{
+                padding: '9px 12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                justifyContent: 'flex-start',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 2px 8px rgba(244, 63, 94, 0.15)',
+              }}
               onClick={handleSeverRandom}
             >
-              <Zap size={14} /> Sever Link
+              <Zap size={14} color="var(--accent-rose)" /> Sever Link
             </button>
             <button
               className="btn btn-danger"
-              style={{ padding: '8px 10px', fontSize: '11px', justifyContent: 'flex-start' }}
+              style={{
+                padding: '9px 12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                justifyContent: 'flex-start',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 2px 8px rgba(244, 63, 94, 0.15)',
+              }}
               onClick={handleCrashRandom}
             >
-              <Power size={14} /> Crash Router
+              <Power size={14} color="var(--accent-rose)" /> Crash Router
             </button>
             <button
-              className="btn btn-accent"
-              style={{ padding: '8px 10px', fontSize: '11px', justifyContent: 'flex-start', gridColumn: 'span 2' }}
+              className="btn btn-secondary"
+              style={{
+                padding: '9px 12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                justifyContent: 'flex-start',
+                gridColumn: 'span 2',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                background: 'rgba(56, 189, 248, 0.08)',
+                color: 'var(--accent-cyan)',
+              }}
               onClick={handleJitter}
             >
-              <Activity size={14} /> Jitter Link Metrics (&plusmn;3 Cost)
+              <Activity size={14} color="var(--accent-cyan)" /> Jitter Link Metrics (&plusmn;3 Cost Perturbation)
             </button>
           </div>
         </div>
@@ -170,7 +193,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
         {/* Link Flapping Generator */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               Link Flap Generator
             </span>
             <span className="badge badge-flapping" style={{ fontSize: '10px' }}>
@@ -178,15 +201,15 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <select
               value={selectedEdgeId}
               onChange={(e) => setSelectedEdgeId(e.target.value)}
               style={{
-                background: 'var(--bg-secondary)',
+                background: 'rgba(255, 255, 255, 0.95)',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-sm)',
-                padding: '6px 10px',
+                padding: '7px 10px',
                 color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '12px',
@@ -200,17 +223,18 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
               ))}
             </select>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Flap Interval: <strong>Every {flapInterval} Ticks</strong>
+                Flap Interval: <strong style={{ color: 'var(--accent-amber)' }}>Every {flapInterval} Ticks</strong>
               </span>
               <input
                 type="range"
+                className="custom-slider custom-slider-amber"
                 min="1"
                 max="5"
                 value={flapInterval}
                 onChange={(e) => setFlapInterval(parseInt(e.target.value, 10))}
-                style={{ width: 120, accentColor: 'var(--accent-amber)' }}
+                style={{ width: 110 }}
               />
             </div>
 
@@ -218,9 +242,15 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
               className={`btn ${
                 selectedEdgeId && chaosEngine.isEdgeFlapping(selectedEdgeId)
                   ? 'btn-danger'
-                  : 'btn-primary'
+                  : 'btn-amber'
               }`}
-              style={{ width: '100%', padding: '8px', fontSize: '12px' }}
+              style={{
+                width: '100%',
+                padding: '9px',
+                fontSize: '12px',
+                fontWeight: 700,
+                borderRadius: 'var(--radius-sm)',
+              }}
               onClick={handleToggleFlap}
             >
               <Repeat size={14} />
@@ -237,7 +267,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                 <span
                   key={f.edgeId}
                   className="badge badge-flapping"
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', boxShadow: '0 0 8px rgba(245, 158, 11, 0.3)' }}
                   onClick={() => {
                     chaosEngine.stopLinkFlap(f.edgeId, 'UP', currentTick);
                     onMutation();
@@ -256,14 +286,29 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
         {/* Automated Chaos Monkey Mode */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
               Automated Chaos Monkey
             </span>
             <button
               className={`btn ${config.enabled ? 'btn-danger' : 'btn-secondary'}`}
-              style={{ padding: '3px 8px', fontSize: '10px' }}
+              style={{
+                padding: '4px 10px',
+                fontSize: '10px',
+                fontWeight: 800,
+                borderRadius: 'var(--radius-full)',
+                boxShadow: config.enabled ? '0 0 10px rgba(244, 63, 94, 0.4)' : undefined,
+              }}
               onClick={handleToggleAutomated}
             >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: config.enabled ? 'var(--accent-rose)' : 'var(--text-muted)',
+                  display: 'inline-block',
+                }}
+              />
               {config.enabled ? 'Active (ON)' : 'Disabled (OFF)'}
             </button>
           </div>
@@ -316,7 +361,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
                   style={{
                     padding: '4px 6px',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'rgba(254, 239, 229, 0.65)',
                     borderLeft: `2px solid ${
                       ev.type.includes('SEVER') || ev.type.includes('CRASH')
                         ? 'var(--accent-rose)'

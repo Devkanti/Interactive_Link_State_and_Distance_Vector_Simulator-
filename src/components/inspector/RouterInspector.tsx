@@ -88,7 +88,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'rgba(15, 23, 42, 0.5)',
+          background: 'rgba(254, 239, 229, 0.75)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -98,15 +98,15 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
               height: 32,
               borderRadius: 'var(--radius-sm)',
               background: isCrashed
-                ? 'rgba(244, 63, 94, 0.2)'
-                : 'linear-gradient(135deg, #0284c7, #38bdf8)',
+                ? 'rgba(225, 71, 90, 0.15)'
+                : 'linear-gradient(135deg, #E87A50, #94C8FD)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               border: `1px solid ${isCrashed ? 'var(--accent-rose)' : 'var(--accent-cyan)'}`,
             }}
           >
-            <Route size={18} color={isCrashed ? 'var(--accent-rose)' : '#fff'} />
+            <Route size={18} color={isCrashed ? 'var(--accent-rose)' : '#ffffff'} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -160,7 +160,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
           style={{
             display: 'flex',
             gap: '4px',
-            background: 'rgba(0, 0, 0, 0.4)',
+            background: 'rgba(254, 239, 229, 0.7)',
             padding: '3px',
             borderRadius: 'var(--radius-sm)',
           }}
@@ -188,7 +188,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
           display: 'flex',
           borderBottom: '1px solid var(--border-subtle)',
           padding: '0 20px',
-          background: 'rgba(15, 23, 42, 0.2)',
+          background: 'rgba(254, 239, 229, 0.45)',
         }}
       >
         <button
@@ -253,24 +253,18 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
             <div
               style={{
                 border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-md)',
                 overflow: 'hidden',
+                boxShadow: 'var(--shadow-sm)',
               }}
             >
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '12px',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
+              <table className="data-table" style={{ fontSize: '11px' }}>
                 <thead>
-                  <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)', textAlign: 'left' }}>
-                    <th style={{ padding: '8px 10px', fontWeight: 600 }}>Dest</th>
-                    <th style={{ padding: '8px 10px', fontWeight: 600 }}>Next Hop</th>
-                    <th style={{ padding: '8px 10px', fontWeight: 600 }}>Metric</th>
-                    <th style={{ padding: '8px 10px', fontWeight: 600 }}>Path</th>
+                  <tr>
+                    <th style={{ width: '22%' }}>Dest</th>
+                    <th style={{ width: '26%' }}>Next Hop</th>
+                    <th style={{ width: '24%' }}>Metric</th>
+                    <th style={{ width: '28%' }}>Forwarding Path</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,49 +275,65 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
                     const isRecentlyUpdated = entry?.updatedAtTick === currentTick;
 
                     let rowBg = 'transparent';
-                    if (isRecentlyUpdated) rowBg = 'rgba(16, 185, 129, 0.12)';
-                    else if (isUnreachable && !isSelf) rowBg = 'rgba(244, 63, 94, 0.06)';
+                    if (isRecentlyUpdated) rowBg = 'rgba(16, 185, 129, 0.08)';
+                    else if (isUnreachable && !isSelf) rowBg = 'rgba(244, 63, 94, 0.04)';
 
                     return (
                       <tr
                         key={dest}
                         style={{
-                          borderTop: '1px solid var(--border-subtle)',
                           background: rowBg,
-                          transition: 'background 0.3s',
+                          transition: 'background 0.25s',
                         }}
                       >
-                        <td style={{ padding: '8px 10px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {dest} {isSelf && <span style={{ color: 'var(--accent-cyan)' }}>(local)</span>}
-                        </td>
-                        <td style={{ padding: '8px 10px' }}>
-                          {isSelf ? (
-                            <span style={{ color: 'var(--text-muted)' }}>-</span>
-                          ) : entry?.nextHop ? (
-                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                              {entry.nextHop}
+                        <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                          <span style={{ fontSize: '12px' }}>{dest}</span>{' '}
+                          {isSelf && (
+                            <span className="badge badge-lsr" style={{ fontSize: '9px', padding: '1px 5px' }}>
+                              LOCAL
                             </span>
-                          ) : (
-                            <span style={{ color: 'var(--accent-rose)' }}>None</span>
                           )}
                         </td>
-                        <td style={{ padding: '8px 10px' }}>
-                          {isUnreachable ? (
-                            <span style={{ color: 'var(--accent-rose)', fontWeight: 700 }}>
-                              &infin; (16)
+                        <td>
+                          {isSelf ? (
+                            <span className="badge badge-direct" style={{ fontSize: '10px' }}>
+                              Loopback
+                            </span>
+                          ) : entry?.nextHop ? (
+                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                              via {entry.nextHop}
                             </span>
                           ) : (
-                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          {isSelf ? (
+                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 800 }}>0</span>
+                          ) : isUnreachable ? (
+                            <span className="badge badge-unreachable" style={{ fontSize: '9px' }}>
+                              Unreachable (&infin;)
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 800 }}>
                               {entry?.cost}
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '8px 10px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          {entry?.path && entry.path.length > 0
-                            ? entry.path.join(' \u2192 ')
-                            : isUnreachable
-                            ? '\u2717 Drop'
-                            : '-'}
+                        <td style={{ fontSize: '11px' }}>
+                          {isSelf ? (
+                            <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>Direct</span>
+                          ) : entry?.path && entry.path.length > 0 ? (
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                              {entry.path.join(' \u2192 ')}
+                            </span>
+                          ) : isUnreachable ? (
+                            <span style={{ color: 'var(--accent-rose)', opacity: 0.85, fontSize: '10px' }}>
+                              ✕ ICMP Drop
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -337,7 +347,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
                 marginTop: '14px',
                 padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
-                background: 'rgba(255, 255, 255, 0.02)',
+                background: 'rgba(254, 239, 229, 0.65)',
                 border: '1px solid var(--border-subtle)',
                 fontSize: '11px',
                 color: 'var(--text-muted)',
@@ -391,7 +401,8 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
                         <span
                           key={n.neighborId}
                           style={{
-                            background: 'rgba(255, 255, 255, 0.06)',
+                            background: 'rgba(254, 226, 207, 0.65)',
+                            color: 'var(--text-primary)',
                             padding: '2px 8px',
                             borderRadius: 'var(--radius-sm)',
                             fontFamily: 'var(--font-mono)',
@@ -440,7 +451,7 @@ export const RouterInspector: React.FC<RouterInspectorProps> = ({
                   }}
                 >
                   <thead>
-                    <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-secondary)' }}>
+                    <tr style={{ background: 'rgba(254, 239, 229, 0.9)', color: 'var(--text-secondary)' }}>
                       <th style={{ padding: '6px 8px', textAlign: 'left' }}>Dest (y)</th>
                       {activeNeighbors.map((n) => (
                         <th key={n.neighborId} style={{ padding: '6px 8px', textAlign: 'center' }}>
