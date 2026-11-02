@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mininet-engine
+  namespace: routing-simulator
+  labels:
+    app.kubernetes.io/name: mininet-engine
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mininet-engine
+  template:
+    metadata:
+      labels:
+        app: mininet-engine
+    spec:
+      containers:
+        - name: mininet
+          image: routing-simulator/mininet:latest
+          imagePullPolicy: IfNotPresent
+          # Linux network namespaces (netns) & virtual ethernet (veth) require privileged mode
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_ADMIN
+          envFrom:
+            - configMapRef:
+                name: routing-simulator-config
+          ports:
+            - name: rest-bridge
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: host-modules
+              mountPath: /lib/modules
+              readOnly: true
+      volumes:
+        - name: host-modules
+          hostPath:
+            path: /lib/modules

@@ -1,4 +1,4 @@
-# Logs
+# Logs & Debug Output
 logs
 *.log
 npm-debug.log*
@@ -7,18 +7,76 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies & Build Artifacts
+node_modules/
+dist/
+dist-ssr/
 *.local
+*.tsbuildinfo
 
-# Editor directories and files
+# Sensitive Files & Environment Variables
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.secret
+secrets/
+credentials.json
+token.json
+
+# Academic & Personal Document Files (Word, PDF, Excel, Backups)
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+*.csv
+~$*
+*.tmp
+*USER_BACKUP*
+*_BACKUP*
+*_backup*
+scratch/
+report_images/
+temp_reports/
+
+# Python Runtime & Caches (Mininet & Simulation Scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor & IDE Directories
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swo
+*.swp
+
+# OS System Artifacts & Temp Storage
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+.tempmediaStorage/
+.system_generated/
+.gemini/

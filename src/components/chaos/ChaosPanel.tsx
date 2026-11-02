@@ -61,6 +61,7 @@ export const ChaosPanel: React.FC<ChaosPanelProps> = ({
     const nextConfig = { ...config, enabled: nextEnabled };
     chaosEngine.setConfig(nextConfig);
     setConfig(nextConfig);
+    onMutation();
   };
 
   return (

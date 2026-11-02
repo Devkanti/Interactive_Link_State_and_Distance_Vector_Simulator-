@@ -14,11 +14,22 @@ import {
   Power,
   Activity,
   Hand,
+  Target,
+  Flame,
+  X,
 } from 'lucide-react';
 
 import { TracePacket } from '../../core/tracer/types';
 import { InFlightLSPPacket } from '../../core/lsr/types';
 import { InFlightDVMessage } from '../../core/dvr/types';
+import {
+  findShortestPath,
+  normalizeNodeId,
+  ActiveAnimatedPing,
+  CanvasActionBanner,
+  NodePulseRing,
+  ChaosStrikeEffect,
+} from '../../core/animation/PingAnimationEngine';
 
 interface TopologyCanvasProps {
   graph: NetworkGraph;
@@ -30,6 +41,9 @@ interface TopologyCanvasProps {
   canvasTheme?: 'default' | 'lsr' | 'dvr';
   readOnly?: boolean;
   showControls?: boolean;
+  isChaosActive?: boolean;
+  pingTriggerSignal?: { sourceId: string; destId: string; timestamp: number } | null;
+  onTriggerPing?: (sourceId: string, destId: string) => void;
 }
 
 interface DraggingState {
@@ -56,29 +70,251 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
   canvasTheme = 'default',
   readOnly = false,
   showControls = true,
+  isChaosActive = false,
+  pingTriggerSignal,
+  onTriggerPing,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Graph state listener to trigger re-renders
+  // Graph state listener to trigger re-renders & detect action events
   const [, setVersion] = useState(0);
+
+  // Chaos Monkey Strikes & Animations
+  const [chaosStrikes, setChaosStrikes] = useState<ChaosStrikeEffect[]>([]);
+
+  // Action Banners State
+  const [actionBanners, setActionBanners] = useState<CanvasActionBanner[]>([]);
+  const addActionBanner = useCallback(
+    (type: CanvasActionBanner['type'], title: string, subtitle?: string, color?: string) => {
+      const banner: CanvasActionBanner = {
+        id: `banner-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type,
+        title,
+        subtitle,
+        color: color || (type.includes('DOWN') || type.includes('DROP') ? '#F43F5E' : '#10B981'),
+        timestamp: Date.now(),
+        durationMs: 3200,
+      };
+      setActionBanners((prev) => [...prev.slice(-3), banner]);
+      setTimeout(() => {
+        setActionBanners((prev) => prev.filter((b) => b.id !== banner.id));
+      }, 3300);
+    },
+    []
+  );
+
+  // Track previous graph elements to detect actions (sever, restore, crash, recover, jitter, flap)
+  const prevEdgeStatesRef = useRef<Map<string, string>>(new Map());
+  const prevEdgeCostsRef = useRef<Map<string, number>>(new Map());
+  const prevNodeStatesRef = useRef<Map<string, string>>(new Map());
+
   useEffect(() => {
+    // Initialize tracking maps
+    graph.getEdges().forEach((e) => {
+      prevEdgeStatesRef.current.set(e.id, e.status);
+      prevEdgeCostsRef.current.set(e.id, e.cost);
+    });
+    graph.getNodes().forEach((n) => prevNodeStatesRef.current.set(n.id, n.status));
+
     return graph.subscribe(() => {
       setVersion((v) => v + 1);
+
+      // Detect edge state transitions
+      const currentEdges = graph.getEdges();
+      for (const edge of currentEdges) {
+        const prevStatus = prevEdgeStatesRef.current.get(edge.id);
+        const srcNode = graph.getNode(edge.source);
+        const dstNode = graph.getNode(edge.target);
+        const srcLbl = srcNode?.label || edge.source;
+        const dstLbl = dstNode?.label || edge.target;
+
+        if (prevStatus && prevStatus !== edge.status) {
+          prevEdgeStatesRef.current.set(edge.id, edge.status);
+
+          if (edge.status === 'DOWN') {
+            if (srcNode && dstNode) {
+              setChaosStrikes((prev) => [
+                ...prev,
+                {
+                  id: `sever-${Date.now()}-${edge.id}`,
+                  type: 'LINK_SEVER',
+                  sourceX: srcNode.x,
+                  sourceY: srcNode.y,
+                  targetX: dstNode.x,
+                  targetY: dstNode.y,
+                  color: '#F43F5E',
+                  label: '⚡ SEVERED',
+                  startTime: Date.now(),
+                  durationMs: 2500,
+                },
+              ]);
+            }
+            addActionBanner(
+              'CHAOS_STRIKE',
+              '🔥 Link Severed!',
+              `Link [${srcLbl} ⟷ ${dstLbl}] is set to DOWN`,
+              '#F43F5E'
+            );
+          } else if (edge.status === 'FLAPPING') {
+            if (srcNode && dstNode) {
+              setChaosStrikes((prev) => [
+                ...prev,
+                {
+                  id: `flap-${Date.now()}-${edge.id}`,
+                  type: 'FLAP',
+                  sourceX: srcNode.x,
+                  sourceY: srcNode.y,
+                  targetX: dstNode.x,
+                  targetY: dstNode.y,
+                  color: '#F59E0B',
+                  label: '⚠️ FLAPPING',
+                  startTime: Date.now(),
+                  durationMs: 3000,
+                },
+              ]);
+            }
+            addActionBanner(
+              'LINK_FLAP',
+              '⚠️ Chaos Flap Storm!',
+              `Link [${srcLbl} ⟷ ${dstLbl}] oscillating rapidly`,
+              '#F59E0B'
+            );
+          } else if (edge.status === 'UP') {
+            if (srcNode && dstNode) {
+              setNodePulseRings((prev) => [
+                ...prev,
+                {
+                  id: `pulse-src-${Date.now()}-${srcNode.id}`,
+                  nodeId: srcNode.id,
+                  color: '#10B981',
+                  startTime: Date.now(),
+                  durationMs: 900,
+                },
+                {
+                  id: `pulse-dst-${Date.now()}-${dstNode.id}`,
+                  nodeId: dstNode.id,
+                  color: '#10B981',
+                  startTime: Date.now(),
+                  durationMs: 900,
+                },
+              ]);
+            }
+            addActionBanner(
+              'LINK_UP',
+              'Link Restored!',
+              `Link [${srcLbl} ⟷ ${dstLbl}] is restored to UP`,
+              '#10B981'
+            );
+          }
+        } else if (!prevStatus) {
+          prevEdgeStatesRef.current.set(edge.id, edge.status);
+        }
+
+        // Detect cost shifts (metric jitter)
+        const prevCost = prevEdgeCostsRef.current.get(edge.id);
+        if (prevCost !== undefined && prevCost !== edge.cost) {
+          prevEdgeCostsRef.current.set(edge.id, edge.cost);
+          if (srcNode && dstNode) {
+            const midX = (srcNode.x + dstNode.x) / 2;
+            const midY = (srcNode.y + dstNode.y) / 2;
+            setChaosStrikes((prev) => [
+              ...prev,
+              {
+                id: `jitter-${Date.now()}-${edge.id}`,
+                type: 'METRIC_SPIKE',
+                sourceX: midX,
+                sourceY: midY,
+                color: '#F97316',
+                label: `🔥 Cost: ${prevCost} ➔ ${edge.cost}`,
+                startTime: Date.now(),
+                durationMs: 2400,
+              },
+            ]);
+            addActionBanner(
+              'METRIC_JITTER',
+              '🎲 Metric Jitter Injected!',
+              `Link [${srcLbl} ⟷ ${dstLbl}] cost: ${prevCost} ➔ ${edge.cost}`,
+              '#F97316'
+            );
+          }
+        } else if (prevCost === undefined) {
+          prevEdgeCostsRef.current.set(edge.id, edge.cost);
+        }
+      }
+
+      // Detect node status transitions
+      const currentNodes = graph.getNodes();
+      for (const node of currentNodes) {
+        const prevStatus = prevNodeStatesRef.current.get(node.id);
+        if (prevStatus && prevStatus !== node.status) {
+          prevNodeStatesRef.current.set(node.id, node.status);
+          const nodeLbl = node.label || `Router ${node.id}`;
+          if (node.status === 'CRASHED') {
+            setChaosStrikes((prev) => [
+              ...prev,
+              {
+                id: `crash-${Date.now()}-${node.id}`,
+                type: 'ROUTER_CRASH',
+                sourceX: node.x,
+                sourceY: node.y,
+                color: '#F43F5E',
+                label: '💥 CRASHED',
+                startTime: Date.now(),
+                durationMs: 2600,
+              },
+            ]);
+            addActionBanner(
+              'ROUTER_CRASH',
+              '💥 Router Crashed!',
+              `${nodeLbl} forced OFFLINE by Chaos Monkey`,
+              '#F43F5E'
+            );
+          } else if (node.status === 'ACTIVE') {
+            setNodePulseRings((prev) => [
+              ...prev,
+              {
+                id: `pulse-recover-${Date.now()}-${node.id}`,
+                nodeId: node.id,
+                color: '#10B981',
+                startTime: Date.now(),
+                durationMs: 900,
+              },
+            ]);
+            addActionBanner(
+              'LINK_UP',
+              'Router Active!',
+              `${nodeLbl} restored ONLINE`,
+              '#10B981'
+            );
+          }
+        } else if (!prevStatus) {
+          prevNodeStatesRef.current.set(node.id, node.status);
+        }
+      }
     });
-  }, [graph]);
+  }, [graph, addActionBanner]);
 
   // Viewport Pan & Zoom state
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-  // Tool Modes: 'select' | 'link'
-  const [toolMode, setToolMode] = useState<'select' | 'link'>('select');
+  // Tool Modes: 'select' | 'link' | 'ping'
+  const [toolMode, setToolMode] = useState<'select' | 'link' | 'ping'>('select');
+  const [pingToolSource, setPingToolSource] = useState<NodeId | null>(null);
 
-  // Dragging and Connecting states
+  // Ping Animations & Router Shockwave Rings
+  const [activePings, setActivePings] = useState<ActiveAnimatedPing[]>([]);
+  const [nodePulseRings, setNodePulseRings] = useState<NodePulseRing[]>([]);
+
+  // Dragging and Connecting states with refs to prevent stale closure lockups
   const [dragging, setDragging] = useState<DraggingState | null>(null);
   const [connecting, setConnecting] = useState<ConnectingState | null>(null);
+
+  const draggingRef = useRef<DraggingState | null>(null);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const connectingRef = useRef<ConnectingState | null>(null);
 
   // Active Edge Modal
   const [editingEdge, setEditingEdge] = useState<NetworkEdge | null>(null);
@@ -92,6 +328,219 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   const nodes = graph.getNodes();
   const edges = graph.getEdges();
+
+  // Ping Trigger Engine
+  const triggerPingAnimation = useCallback(
+    (sourceId: string, destId: string) => {
+      const allNodes = graph.getNodes();
+      const nodeIds = allNodes.map((n) => n.id);
+      const normSrc = normalizeNodeId(sourceId, nodeIds);
+      const normDst = normalizeNodeId(destId, nodeIds);
+
+      const srcNode = graph.getNode(normSrc);
+      const dstNode = graph.getNode(normDst);
+      if (!srcNode || !dstNode) return;
+
+      const { path, reachable } = findShortestPath(graph, normSrc, normDst);
+
+      const srcLabel = srcNode.label || srcNode.id;
+      const dstLabel = dstNode.label || dstNode.id;
+
+      if (!reachable || path.length < 2) {
+        // Unreachable: animate drop at source
+        const droppedPing: ActiveAnimatedPing = {
+          id: `ping-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          sourceId: normSrc,
+          destId: normDst,
+          sourceLabel: srcLabel,
+          destLabel: dstLabel,
+          forwardPath: [normSrc],
+          returnPath: [],
+          activePath: [normSrc],
+          currentHopIndex: 0,
+          progress: 0,
+          phase: 'DROPPED',
+          ttl: 64,
+          initialTtl: 64,
+          color: '#F43F5E',
+          label: 'ICMP Unreachable',
+          statusText: 'No Route to Host',
+          isComplete: false,
+          startTime: Date.now(),
+          hopDurationMs: 800,
+        };
+        setActivePings((prev) => [...prev, droppedPing]);
+        addActionBanner(
+          'PING_DROP',
+          'ICMP Host Unreachable',
+          `No active route from ${srcLabel} to ${dstLabel} (100% loss)`,
+          '#F43F5E'
+        );
+        return;
+      }
+
+      const forwardPath = [...path];
+      const returnPath = [...path].reverse();
+
+      const newPing: ActiveAnimatedPing = {
+        id: `ping-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        sourceId: normSrc,
+        destId: normDst,
+        sourceLabel: srcLabel,
+        destLabel: dstLabel,
+        forwardPath,
+        returnPath,
+        activePath: forwardPath,
+        currentHopIndex: 0,
+        progress: 0,
+        phase: 'REQUEST',
+        ttl: 64,
+        initialTtl: 64,
+        color: '#00F2FE',
+        label: 'ICMP Echo Req',
+        statusText: `Hop 1 of ${forwardPath.length - 1}`,
+        isComplete: false,
+        startTime: Date.now(),
+        hopDurationMs: 800,
+      };
+
+      setActivePings((prev) => [...prev, newPing]);
+      addActionBanner(
+        'PING_SUCCESS',
+        'ICMP Ping Dispatched',
+        `${srcLabel} ➔ ${dstLabel} via ${forwardPath.join(' ➔ ')}`,
+        '#00F2FE'
+      );
+
+      // Source router initial pulse
+      setNodePulseRings((prev) => [
+        ...prev,
+        {
+          id: `pulse-${Date.now()}-${normSrc}`,
+          nodeId: normSrc,
+          color: '#00F2FE',
+          startTime: Date.now(),
+          durationMs: 700,
+        },
+      ]);
+    },
+    [graph, addActionBanner]
+  );
+
+  // React to external ping triggers (e.g. from Mininet modal or Packet Tracer bar)
+  const lastSignalRef = useRef<number>(0);
+  useEffect(() => {
+    if (pingTriggerSignal && pingTriggerSignal.timestamp > lastSignalRef.current) {
+      lastSignalRef.current = pingTriggerSignal.timestamp;
+      triggerPingAnimation(pingTriggerSignal.sourceId, pingTriggerSignal.destId);
+    }
+  }, [pingTriggerSignal, triggerPingAnimation]);
+
+  // Real-time 60fps Animation Loop for Packets and Shockwaves
+  useEffect(() => {
+    let animFrame: number;
+    let lastTime = performance.now();
+
+    const loop = (currentTime: number) => {
+      const dt = currentTime - lastTime;
+      lastTime = currentTime;
+
+      // Clean up expired pulse rings
+      setNodePulseRings((prev) =>
+        prev.filter((r) => currentTime - r.startTime < r.durationMs)
+      );
+
+      // Clean up expired chaos strike visual effects
+      setChaosStrikes((prev) =>
+        prev.filter((c) => currentTime - c.startTime < c.durationMs)
+      );
+
+      // Advance active in-flight pings
+      setActivePings((prevPings) => {
+        if (prevPings.length === 0) return prevPings;
+
+        let hasCompletedAny = false;
+        const nextPings = prevPings.map((ping) => {
+          if (ping.isComplete) return ping;
+
+          const step = dt / ping.hopDurationMs;
+          const nextProg = ping.progress + step;
+
+          if (nextProg < 1.0) {
+            return { ...ping, progress: nextProg };
+          }
+
+          // Arrived at next node in path
+          const nextHopIdx = ping.currentHopIndex + 1;
+          const arrivedNodeId = ping.activePath[nextHopIdx];
+
+          // Trigger pulse shockwave at arrived router
+          if (arrivedNodeId) {
+            setNodePulseRings((rings) => [
+              ...rings,
+              {
+                id: `pulse-${Date.now()}-${arrivedNodeId}`,
+                nodeId: arrivedNodeId,
+                color: ping.phase === 'REQUEST' ? '#00F2FE' : '#10B981',
+                startTime: Date.now(),
+                durationMs: 700,
+              },
+            ]);
+          }
+
+          // Case 1: Arrived at destination in REQUEST phase
+          if (ping.phase === 'REQUEST' && nextHopIdx >= ping.activePath.length - 1) {
+            return {
+              ...ping,
+              phase: 'REPLY' as const,
+              activePath: ping.returnPath,
+              currentHopIndex: 0,
+              progress: 0,
+              ttl: ping.ttl - 1,
+              color: '#10B981',
+              label: 'ICMP Echo Reply',
+              statusText: 'Echo Reply returning...',
+            };
+          }
+
+          // Case 2: Arrived back at source in REPLY phase
+          if (ping.phase === 'REPLY' && nextHopIdx >= ping.activePath.length - 1) {
+            hasCompletedAny = true;
+            addActionBanner(
+              'PING_SUCCESS',
+              'ICMP Echo Reply Received!',
+              `${ping.sourceLabel} ⟷ ${ping.destLabel} (0% Packet Loss, 0.088ms RTT)`,
+              '#10B981'
+            );
+            return { ...ping, isComplete: true, progress: 1.0 };
+          }
+
+          // Case 3: Dropped packet finished
+          if (ping.phase === 'DROPPED') {
+            hasCompletedAny = true;
+            return { ...ping, isComplete: true, progress: 1.0 };
+          }
+
+          // Continue along path
+          return {
+            ...ping,
+            currentHopIndex: nextHopIdx,
+            progress: 0,
+            ttl: Math.max(1, ping.ttl - 1),
+            statusText: `Hop ${nextHopIdx + 1} of ${ping.activePath.length - 1}`,
+          };
+        });
+
+        // Filter out completed pings
+        return hasCompletedAny ? nextPings.filter((p) => !p.isComplete) : nextPings;
+      });
+
+      animFrame = requestAnimationFrame(loop);
+    };
+
+    animFrame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animFrame);
+  }, [addActionBanner]);
 
   // Screen to SVG graph coordinates translation
   const screenToGraphCoords = useCallback(
@@ -205,75 +654,144 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
 
   // Canvas Mouse Down: background pan
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0 && (e.target as HTMLElement).tagName === 'svg') {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      if (onSelectNode) onSelectNode(null);
+    if (e.button === 0) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'svg' || target.tagName === 'rect') {
+        e.preventDefault();
+        isPanningRef.current = true;
+        panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        setIsPanning(true);
+        if (onSelectNode) onSelectNode(null);
+      }
     }
   };
+
+  const handleGlobalMouseUp = useCallback(() => {
+    isPanningRef.current = false;
+    setIsPanning(false);
+    draggingRef.current = null;
+    setDragging(null);
+    connectingRef.current = null;
+    setConnecting(null);
+  }, []);
 
   // Global mouse move & up
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isPanning) {
+      if (isPanningRef.current) {
         setPan({
-          x: e.clientX - panStart.x,
-          y: e.clientY - panStart.y,
+          x: e.clientX - panStartRef.current.x,
+          y: e.clientY - panStartRef.current.y,
         });
-      } else if (dragging) {
+      } else if (draggingRef.current) {
         const coords = screenToGraphCoords(e.clientX, e.clientY);
-        graph.setNodePosition(dragging.nodeId, Math.round(coords.x), Math.round(coords.y));
-      } else if (connecting) {
+        graph.setNodePosition(draggingRef.current.nodeId, Math.round(coords.x), Math.round(coords.y));
+      } else if (connectingRef.current) {
         const coords = screenToGraphCoords(e.clientX, e.clientY);
-        setConnecting((prev) =>
-          prev ? { ...prev, currentX: coords.x, currentY: coords.y } : null
-        );
+        const updated = {
+          ...connectingRef.current,
+          currentX: coords.x,
+          currentY: coords.y,
+        };
+        connectingRef.current = updated;
+        setConnecting(updated);
       }
     };
 
-    const handleMouseUp = () => {
-      setIsPanning(false);
-      setDragging(null);
-      setConnecting(null);
+    const handleMouseUpCapture = () => {
+      handleGlobalMouseUp();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleGlobalMouseUp();
+        setContextMenu(null);
+        setEditingEdge(null);
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    // Crucial: Use capture: true so mouseup is intercepted regardless of any element stopping propagation
+    window.addEventListener('mouseup', handleMouseUpCapture, { capture: true });
+    window.addEventListener('blur', handleGlobalMouseUp);
+    document.addEventListener('mouseleave', handleGlobalMouseUp);
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleMouseUpCapture, { capture: true });
+      window.removeEventListener('blur', handleGlobalMouseUp);
+      document.removeEventListener('mouseleave', handleGlobalMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPanning, panStart, dragging, connecting, graph, screenToGraphCoords]);
+  }, [graph, screenToGraphCoords, handleGlobalMouseUp]);
 
-  // Start Node Drag or Connect
+  // Start Node Drag, Connect, or Ping
   const handleNodeMouseDown = (e: React.MouseEvent, node: NetworkNode) => {
+    if (e.button !== 0) return;
+    // Crucial: Prevent native browser ghost drag and text selection
+    e.preventDefault();
     e.stopPropagation();
-    if (e.button === 0) {
-      if (toolMode === 'link') {
-        const coords = screenToGraphCoords(e.clientX, e.clientY);
-        setConnecting({
-          sourceNodeId: node.id,
-          currentX: coords.x,
-          currentY: coords.y,
-        });
+
+    if (toolMode === 'ping') {
+      if (!pingToolSource) {
+        setPingToolSource(node.id);
+        setNodePulseRings((prev) => [
+          ...prev,
+          {
+            id: `pulse-select-${Date.now()}-${node.id}`,
+            nodeId: node.id,
+            color: '#00F2FE',
+            startTime: Date.now(),
+            durationMs: 900,
+          },
+        ]);
+        addActionBanner(
+          'PING_SUCCESS',
+          'Ping: Source Selected',
+          `${node.label || node.id} selected as Source. Now click Destination router.`,
+          '#00F2FE'
+        );
+      } else if (pingToolSource !== node.id) {
+        triggerPingAnimation(pingToolSource, node.id);
+        if (onTriggerPing) onTriggerPing(pingToolSource, node.id);
+        setPingToolSource(null);
+        setToolMode('select');
       } else {
-        setDragging({
-          nodeId: node.id,
-          startX: e.clientX,
-          startY: e.clientY,
-          originalX: node.x,
-          originalY: node.y,
-        });
+        // Clicked same node: cancel selection
+        setPingToolSource(null);
       }
-      if (onSelectNode) onSelectNode(node.id);
+      return;
     }
+
+    if (toolMode === 'link') {
+      const coords = screenToGraphCoords(e.clientX, e.clientY);
+      const conn = {
+        sourceNodeId: node.id,
+        currentX: coords.x,
+        currentY: coords.y,
+      };
+      connectingRef.current = conn;
+      setConnecting(conn);
+    } else {
+      const drag = {
+        nodeId: node.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        originalX: node.x,
+        originalY: node.y,
+      };
+      draggingRef.current = drag;
+      setDragging(drag);
+    }
+    if (onSelectNode) onSelectNode(node.id);
   };
 
   // Complete Connection on MouseUp over Target Node
-  const handleNodeMouseUp = (e: React.MouseEvent, targetNode: NetworkNode) => {
-    e.stopPropagation();
-    if (connecting && connecting.sourceNodeId !== targetNode.id) {
-      const sourceId = connecting.sourceNodeId;
+  const handleNodeMouseUp = (targetNode: NetworkNode) => {
+    const activeConnecting = connectingRef.current || connecting;
+    if (activeConnecting && activeConnecting.sourceNodeId !== targetNode.id) {
+      const sourceId = activeConnecting.sourceNodeId;
       const targetId = targetNode.id;
       // Check if edge already exists
       const existing = graph.getEdgeBetween(sourceId, targetId);
@@ -281,8 +799,9 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
         const newEdge = graph.addEdge(sourceId, targetId, 1);
         setEditingEdge(newEdge);
       }
-      setConnecting(null);
     }
+    // Always release dragging, connecting, and panning states on node release
+    handleGlobalMouseUp();
   };
 
   // Node Context Menu
@@ -290,6 +809,20 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
     e.preventDefault();
     e.stopPropagation();
     const items: ContextMenuItem[] = [
+      {
+        label: 'Send ICMP Ping from here...',
+        icon: <Target size={14} />,
+        action: () => {
+          setToolMode('ping');
+          setPingToolSource(node.id);
+          addActionBanner(
+            'PING_SUCCESS',
+            'Ping Source Selected',
+            `Click destination router to dispatch ICMP packet`,
+            '#00F2FE'
+          );
+        },
+      },
       {
         label: node.status === 'ACTIVE' ? 'Crash Router' : 'Recover Router',
         icon: <Power size={14} />,
@@ -397,6 +930,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
       ref={containerRef}
       onWheel={handleWheel}
       onMouseDown={handleCanvasMouseDown}
+      onMouseUp={handleGlobalMouseUp}
       onContextMenu={handleCanvasContextMenu}
       style={{
         position: 'relative',
@@ -409,7 +943,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
             : canvasTheme === 'dvr'
             ? 'radial-gradient(circle at 50% 50%, #FAF4EE 0%, #F8EBE0 60%, #EFE0D2 100%)'
             : 'radial-gradient(circle at 50% 50%, #FAF5EF 0%, #F7EDE3 60%, #EFE1D4 100%)',
-        cursor: isPanning ? 'grabbing' : connecting ? 'crosshair' : 'default',
+        cursor: isPanning ? 'grabbing' : dragging ? 'grabbing' : connecting ? 'crosshair' : 'default',
         userSelect: 'none',
       }}
     >
@@ -541,10 +1075,29 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                   strokeWidth="2.5"
                   strokeDasharray={isDown ? '6 6' : isFlapping ? '8 4' : undefined}
                   style={{
-                    filter: isDown ? 'none' : 'drop-shadow(0 0 5px rgba(148, 200, 253, 0.55))',
+                    filter: isDown ? 'none' : isFlapping ? 'drop-shadow(0 0 10px #F59E0B)' : 'drop-shadow(0 0 5px rgba(148, 200, 253, 0.55))',
                     transition: 'stroke 0.2s',
                   }}
                 />
+
+                {/* Oscillating Flapping Caution Beam */}
+                {isFlapping && (
+                  <line
+                    x1={source.x}
+                    y1={source.y}
+                    x2={target.x}
+                    y2={target.y}
+                    stroke="#F59E0B"
+                    strokeWidth="4.5"
+                    strokeDasharray="10 8"
+                    opacity="0.9"
+                    style={{
+                      filter: 'drop-shadow(0 0 12px #F59E0B)',
+                      animation: 'chaosBadgePulse 1.2s ease-in-out infinite',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
 
                 {/* Active Flow Animation Line when In-Flight Packets Transmit */}
                 {hasInFlight && !isDown && (
@@ -555,7 +1108,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                     y2={target.y}
                     stroke={hasInFlightLSR ? 'url(#packetStreamGrad)' : 'url(#packetStreamGradDvr)'}
                     strokeWidth="3.5"
-                    className="edge-stream-active"
+                    className={hasInFlightLSR ? 'edge-stream-active' : 'edge-stream-active edge-stream-active-dvr'}
                     style={{ pointerEvents: 'none' }}
                   />
                 )}
@@ -617,6 +1170,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
           {/* Nodes Layer */}
           {nodes.map((node) => {
             const isSelected = selectedNodeId === node.id;
+            const isPingSource = pingToolSource === node.id;
             const isCrashed = node.status === 'CRASHED';
             const radius = 24;
 
@@ -625,12 +1179,51 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
                 key={node.id}
                 transform={`translate(${node.x}, ${node.y})`}
                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                onMouseUp={(e) => handleNodeMouseUp(e, node)}
+                onMouseUp={() => handleNodeMouseUp(node)}
                 onContextMenu={(e) => handleNodeContextMenu(e, node)}
-                style={{ cursor: toolMode === 'link' ? 'crosshair' : 'grab' }}
+                style={{
+                  cursor:
+                    toolMode === 'ping'
+                      ? 'crosshair'
+                      : toolMode === 'link'
+                      ? 'crosshair'
+                      : dragging?.nodeId === node.id
+                      ? 'grabbing'
+                      : 'grab',
+                }}
               >
+                {/* Ping Tool Source Target Ring */}
+                {isPingSource && (
+                  <g>
+                    <circle
+                      r={radius + 12}
+                      fill="none"
+                      stroke="#00F2FE"
+                      strokeWidth="2.5"
+                      strokeDasharray="6 4"
+                      style={{ filter: 'drop-shadow(0 0 10px #00F2FE)' }}
+                    >
+                      <animateTransform
+                        attributeName="transform"
+                        type="rotate"
+                        from="0"
+                        to="360"
+                        dur="4s"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                    <circle
+                      r={radius + 5}
+                      fill="none"
+                      stroke="#00F2FE"
+                      strokeWidth="1.5"
+                      opacity="0.8"
+                    />
+                  </g>
+                )}
+
                 {/* Selection halo */}
-                {isSelected && (
+                {isSelected && !isPingSource && (
                   <circle
                     r={radius + 8}
                     fill="none"
@@ -778,7 +1371,7 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
             const particleColor = isCycle ? 'var(--accent-amber)' : 'var(--accent-cyan)';
 
             return (
-              <g key={pkt.id} transform={`translate(${posX}, ${posY})`}>
+              <g key={pkt.id} transform={`translate(${posX}, ${posY})`} style={{ pointerEvents: 'none' }}>
                 {/* Glowing halo */}
                 <circle
                   r="18"
@@ -882,7 +1475,15 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               const badgeId = `lsp-${item.packet.id}-${item.sourceNodeId}-${item.targetNodeId}-${idxInDir}`;
 
               return (
-                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float">
+                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float" style={{ pointerEvents: 'none' }}>
+                  {/* Forward gliding motion along wire */}
+                  <animateTransform
+                    attributeName="transform"
+                    type="translate"
+                    values={`${posX - tx * 14},${posY - ty * 14}; ${posX + tx * 14},${posY + ty * 14}; ${posX - tx * 14},${posY - ty * 14}`}
+                    dur="1.8s"
+                    repeatCount="indefinite"
+                  />
                   {/* Radiating Radar Ripple Wave */}
                   <circle cx="-20" cy="0" r="5" fill="none" stroke={color} strokeWidth="1.6">
                     <animate attributeName="r" from="5" to="16" dur="1.5s" repeatCount="indefinite" />
@@ -989,7 +1590,15 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               const pillWidth = Math.max(68, labelText.length * 7 + 24);
 
               return (
-                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float">
+                <g key={badgeId} transform={`translate(${posX}, ${posY})`} className="packet-float" style={{ pointerEvents: 'none' }}>
+                  {/* Forward gliding motion along wire */}
+                  <animateTransform
+                    attributeName="transform"
+                    type="translate"
+                    values={`${posX - tx * 14},${posY - ty * 14}; ${posX + tx * 14},${posY + ty * 14}; ${posX - tx * 14},${posY - ty * 14}`}
+                    dur="1.8s"
+                    repeatCount="indefinite"
+                  />
                   {/* Radiating Radar Ripple Wave */}
                   <circle cx={-pillWidth / 2 + 14} cy="0" r="5" fill="none" stroke={color} strokeWidth="1.6">
                     <animate attributeName="r" from="5" to="16" dur="1.5s" repeatCount="indefinite" />
@@ -1050,8 +1659,470 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
               );
             });
           })()}
+
+          {/* Router Shockwave Pulse Rings */}
+          {nodePulseRings.map((ring) => {
+            const node = graph.getNode(ring.nodeId);
+            if (!node) return null;
+            const elapsed = Date.now() - ring.startTime;
+            const prog = Math.min(1, Math.max(0, elapsed / ring.durationMs));
+            const r = 26 + prog * 44;
+            const strokeW = Math.max(0.6, 3 * (1 - prog));
+            const opacity = Math.max(0, 1 - prog);
+
+            return (
+              <g key={ring.id} style={{ pointerEvents: 'none' }}>
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={r}
+                  fill="none"
+                  stroke={ring.color}
+                  strokeWidth={strokeW}
+                  opacity={opacity}
+                  style={{
+                    filter: `drop-shadow(0 0 10px ${ring.color})`,
+                  }}
+                />
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={r * 0.65}
+                  fill="none"
+                  stroke={ring.color}
+                  strokeWidth={strokeW * 0.7}
+                  opacity={opacity * 0.7}
+                />
+              </g>
+            );
+          })}
+
+          {/* In-Flight ICMP Ping Animated Packets Layer */}
+          {activePings.map((ping) => {
+            const fromNode = graph.getNode(ping.activePath[ping.currentHopIndex]);
+            const toNode = ping.activePath[ping.currentHopIndex + 1]
+              ? graph.getNode(ping.activePath[ping.currentHopIndex + 1])
+              : null;
+            if (!fromNode) return null;
+
+            let posX = fromNode.x;
+            let posY = fromNode.y;
+            let angleDeg = 0;
+
+            if (toNode) {
+              const dx = toNode.x - fromNode.x;
+              const dy = toNode.y - fromNode.y;
+              const len = Math.hypot(dx, dy) || 1;
+              angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+
+              // Lateral offset away from link line so metric badge remains visible
+              const nx = -dy / len;
+              const ny = dx / len;
+              const lateralOffset = 18;
+
+              posX = fromNode.x + dx * ping.progress + nx * lateralOffset;
+              posY = fromNode.y + dy * ping.progress + ny * lateralOffset;
+            }
+
+            const isReply = ping.phase === 'REPLY';
+            const color = ping.color;
+
+            return (
+              <g key={ping.id} transform={`translate(${posX}, ${posY})`} style={{ pointerEvents: 'none' }}>
+                {/* Outer Radiating Pulse Radar Wave */}
+                <circle r="16" fill="none" stroke={color} strokeWidth="1.8" opacity="0.8">
+                  <animate attributeName="r" from="10" to="30" dur="0.9s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.85" to="0" dur="0.9s" repeatCount="indefinite" />
+                </circle>
+
+                {/* Trailing Comet Aura */}
+                <circle r="12" fill={color} opacity="0.35" style={{ filter: 'blur(3px)' }} />
+
+                {/* Core Glowing Particle Dot */}
+                <circle
+                  r="8"
+                  fill={color}
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  style={{
+                    filter: `drop-shadow(0 0 10px ${color})`,
+                  }}
+                />
+                <circle r="2.5" fill="#ffffff" />
+
+                {/* Direction Arrow Head pointing towards next hop */}
+                <g transform={`rotate(${angleDeg}) translate(10, 0)`}>
+                  <polygon points="0,-4 7,0 0,4" fill={color} />
+                </g>
+
+                {/* Sleek Frosted Pill Badge with TTL and Phase */}
+                <g transform="translate(0, -22)" className="packet-float">
+                  <rect
+                    x="-55"
+                    y="-11"
+                    width="110"
+                    height="22"
+                    rx="11"
+                    fill="rgba(15, 23, 42, 0.94)"
+                    stroke={color}
+                    strokeWidth="1.6"
+                    style={{
+                      backdropFilter: 'blur(8px)',
+                      filter: 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4))',
+                    }}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="4"
+                    fill="#ffffff"
+                    fontSize="10"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="700"
+                    letterSpacing="0.2px"
+                  >
+                    {isReply ? '↩ ECHO REPLY' : '➔ ECHO REQ'} · TTL:{ping.ttl}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
+          {/* Chaos Monkey Visual Strikes Layer (Lightning, Explosions, Metric Spikes, Flap Badges) */}
+          {chaosStrikes.map((strike) => {
+            if (strike.type === 'LINK_SEVER' && strike.targetX !== undefined && strike.targetY !== undefined) {
+              const midX = (strike.sourceX + strike.targetX) / 2;
+              const midY = (strike.sourceY + strike.targetY) / 2;
+              return (
+                <g key={strike.id} style={{ pointerEvents: 'none' }}>
+                  {/* Outer Electric Red Laser Lightning Beam */}
+                  <line
+                    x1={strike.sourceX}
+                    y1={strike.sourceY}
+                    x2={strike.targetX}
+                    y2={strike.targetY}
+                    stroke="#F43F5E"
+                    strokeWidth="5"
+                    className="chaos-lightning-line"
+                    style={{ filter: 'drop-shadow(0 0 16px #FB7185)' }}
+                  />
+                  {/* Core White Hot Electric Discharge Line */}
+                  <line
+                    x1={strike.sourceX}
+                    y1={strike.sourceY}
+                    x2={strike.targetX}
+                    y2={strike.targetY}
+                    stroke="#FFFFFF"
+                    strokeWidth="2.2"
+                    className="chaos-lightning-line"
+                  />
+                  {/* Center Sever Spark Burst Badge */}
+                  <g transform={`translate(${midX}, ${midY})`} className="sever-spark-anim">
+                    <circle r="22" fill="none" stroke="#F43F5E" strokeWidth="2.5" opacity="0.85">
+                      <animate attributeName="r" from="8" to="34" dur="0.6s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" from="0.9" to="0" dur="0.6s" repeatCount="indefinite" />
+                    </circle>
+                    <rect
+                      x="-48"
+                      y="-13"
+                      width="96"
+                      height="26"
+                      rx="13"
+                      fill="rgba(244, 63, 94, 0.96)"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                      style={{ filter: 'drop-shadow(0 0 14px #F43F5E)' }}
+                    />
+                    <text
+                      textAnchor="middle"
+                      dy="5"
+                      fill="#FFFFFF"
+                      fontSize="11"
+                      fontFamily="var(--font-mono)"
+                      fontWeight="800"
+                      letterSpacing="0.4px"
+                    >
+                      ⚡ SEVERED
+                    </text>
+                  </g>
+                </g>
+              );
+            }
+
+            if (strike.type === 'ROUTER_CRASH') {
+              return (
+                <g key={strike.id} transform={`translate(${strike.sourceX}, ${strike.sourceY})`} style={{ pointerEvents: 'none' }}>
+                  {/* Expanding Fiery Explosion Shockwaves */}
+                  <circle
+                    r="46"
+                    fill="none"
+                    stroke="#F43F5E"
+                    strokeWidth="3.5"
+                    className="chaos-explosion-ring"
+                  />
+                  <circle
+                    r="32"
+                    fill="rgba(249, 115, 22, 0.28)"
+                    stroke="#F97316"
+                    strokeWidth="2.5"
+                    className="chaos-explosion-ring"
+                    style={{ animationDelay: '0.12s' }}
+                  />
+                  {/* Floating Crash Alert Badge */}
+                  <g transform="translate(0, -38)" className="sever-spark-anim">
+                    <rect
+                      x="-50"
+                      y="-12"
+                      width="100"
+                      height="24"
+                      rx="12"
+                      fill="rgba(225, 29, 72, 0.96)"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.5"
+                      style={{ filter: 'drop-shadow(0 0 14px #E11D48)' }}
+                    />
+                    <text
+                      textAnchor="middle"
+                      dy="4.5"
+                      fill="#FFFFFF"
+                      fontSize="10.5"
+                      fontFamily="var(--font-mono)"
+                      fontWeight="800"
+                      letterSpacing="0.3px"
+                    >
+                      💥 CRASHED
+                    </text>
+                  </g>
+                </g>
+              );
+            }
+
+            if (strike.type === 'METRIC_SPIKE') {
+              return (
+                <g key={strike.id} transform={`translate(${strike.sourceX}, ${strike.sourceY - 14})`} className="flame-pop-anim" style={{ pointerEvents: 'none' }}>
+                  <rect
+                    x="-68"
+                    y="-13"
+                    width="136"
+                    height="26"
+                    rx="13"
+                    fill="rgba(249, 115, 22, 0.96)"
+                    stroke="#FFFFFF"
+                    strokeWidth="1.5"
+                    style={{ filter: 'drop-shadow(0 0 14px rgba(249, 115, 22, 0.75))' }}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="5"
+                    fill="#FFFFFF"
+                    fontSize="11"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="800"
+                  >
+                    {strike.label || '🔥 JITTER'}
+                  </text>
+                </g>
+              );
+            }
+
+            if (strike.type === 'FLAP' && strike.targetX !== undefined && strike.targetY !== undefined) {
+              const midX = (strike.sourceX + strike.targetX) / 2;
+              const midY = (strike.sourceY + strike.targetY) / 2;
+              return (
+                <g key={strike.id} transform={`translate(${midX}, ${midY})`} className="sever-spark-anim" style={{ pointerEvents: 'none' }}>
+                  <rect
+                    x="-58"
+                    y="-13"
+                    width="116"
+                    height="26"
+                    rx="13"
+                    fill="rgba(245, 158, 11, 0.96)"
+                    stroke="#FFFFFF"
+                    strokeWidth="1.5"
+                    style={{ filter: 'drop-shadow(0 0 14px #F59E0B)' }}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dy="5"
+                    fill="#FFFFFF"
+                    fontSize="11"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="800"
+                  >
+                    ⚠️ FLAPPING
+                  </text>
+                </g>
+              );
+            }
+
+            return null;
+          })}
         </g>
       </svg>
+
+      {/* Action Event Floating Banners Stack (Top-Right) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          zIndex: 150,
+          pointerEvents: 'none',
+        }}
+      >
+        {actionBanners.map((banner) => {
+          const isChaos =
+            banner.type.includes('CHAOS') ||
+            banner.type === 'ROUTER_CRASH' ||
+            banner.type === 'METRIC_JITTER' ||
+            banner.type === 'LINK_FLAP' ||
+            banner.type === 'LINK_DOWN';
+
+          return (
+            <div
+              key={banner.id}
+              className="glass-panel canvas-action-banner"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 16px',
+                borderRadius: 'var(--radius-md)',
+                borderLeft: `4px solid ${banner.color}`,
+                backgroundColor: isChaos ? 'rgba(255, 241, 242, 0.98)' : 'rgba(255, 255, 255, 0.96)',
+                boxShadow: isChaos ? '0 8px 24px rgba(244, 63, 94, 0.28)' : '0 8px 24px rgba(70, 45, 30, 0.18)',
+                backdropFilter: 'blur(10px)',
+                minWidth: '240px',
+                maxWidth: '380px',
+              }}
+            >
+              {isChaos ? (
+                <Flame size={16} color={banner.color} style={{ flexShrink: 0 }} />
+              ) : (
+                <div
+                  style={{
+                    width: '9px',
+                    height: '9px',
+                    borderRadius: '50%',
+                    backgroundColor: banner.color,
+                    boxShadow: `0 0 8px ${banner.color}`,
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {banner.title}
+                </span>
+                {banner.subtitle && (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-mono)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {banner.subtitle}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Chaos Monkey Active HUD Indicator */}
+      {isChaosActive && (
+        <div
+          className="glass-panel chaos-active-hud"
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: 80,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '8px 18px',
+            borderRadius: 'var(--radius-full)',
+            background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.95), rgba(249, 115, 22, 0.95))',
+            color: '#ffffff',
+            boxShadow: '0 8px 24px rgba(244, 63, 94, 0.45)',
+            zIndex: 160,
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.6)',
+            pointerEvents: 'none',
+          }}
+        >
+          <Flame size={16} color="#ffffff" />
+          <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.4px' }}>
+            CHAOS MONKEY ACTIVE · AUTO-INJECTING FAULTS
+          </span>
+          <span
+            style={{
+              fontSize: '10px',
+              background: 'rgba(0, 0, 0, 0.28)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-full)',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+            }}
+          >
+            LIVE
+          </span>
+        </div>
+      )}
+
+      {/* Ping Tool Active Guidance Pill (Top-Center) */}
+      {toolMode === 'ping' && (
+        <div
+          className="glass-panel"
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 18px',
+            borderRadius: 'var(--radius-full)',
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            color: '#ffffff',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+            zIndex: 160,
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(0, 242, 254, 0.4)',
+          }}
+        >
+          <Target size={16} color="#00F2FE" />
+          <span style={{ fontSize: '12px', fontWeight: 600 }}>
+            {pingToolSource
+              ? `Source: ${graph.getNode(pingToolSource)?.label || pingToolSource} ➔ Click Destination Router`
+              : 'ICMP Ping Tool: Click Source Router'}
+          </span>
+          <button
+            onClick={() => {
+              setToolMode('select');
+              setPingToolSource(null);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255, 255, 255, 0.7)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '2px',
+            }}
+            title="Cancel Ping Tool"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Floating Canvas Controls Toolbar (Vertical Dock on Left - Prevents overlap with Scrubber) */}
       {showControls && (
@@ -1086,6 +2157,20 @@ export const TopologyCanvas: React.FC<TopologyCanvasProps> = ({
             onClick={() => setToolMode(toolMode === 'link' ? 'select' : 'link')}
           >
             <Link2 size={16} />
+          </button>
+
+          <button
+            className={`btn ${toolMode === 'ping' ? 'btn-primary' : 'btn-secondary'} btn-icon`}
+            title="Quick ICMP Ping Tool (Click source router, then target router)"
+            onClick={() => {
+              setToolMode(toolMode === 'ping' ? 'select' : 'ping');
+              setPingToolSource(null);
+            }}
+            style={{
+              color: toolMode === 'ping' ? '#ffffff' : 'var(--accent-cyan)',
+            }}
+          >
+            <Target size={16} />
           </button>
 
           {!readOnly && (

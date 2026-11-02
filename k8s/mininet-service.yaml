@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mininet
+  namespace: routing-simulator
+  labels:
+    app.kubernetes.io/name: mininet-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: mininet-engine
+  ports:
+    - name: rest-bridge
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

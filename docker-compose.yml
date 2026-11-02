@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 1. Mininet L3 Network Emulation Engine
+  # ============================================================================
+  mininet:
+    build:
+      context: ./mininet
+      dockerfile: Dockerfile
+    container_name: routing_mininet_engine
+    # Mininet requires privileged mode and network admin capabilities to create
+    # Linux network namespaces (netns) and virtual Ethernet (veth) interfaces.
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    environment:
+      - MININET_TOPO=diamond
+      - ROUTING_PROTOCOL=LSR
+      - BRIDGE_PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - /lib/modules:/lib/modules:ro
+    networks:
+      - routing-simulator-net
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # ============================================================================
+  # 2. Interactive Telemetry Control Plane (Web Dashboard)
+  # ============================================================================
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: routing_web_dashboard
+    ports:
+      - "5173:80"
+    depends_on:
+      - mininet
+    networks:
+      - routing-simulator-net
+    restart: unless-stopped
+
+networks:
+  routing-simulator-net:
+    driver: bridge

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { NetworkGraph } from './core/NetworkGraph';
 import { SimulationClock } from './core/SimulationClock';
 import { StateLedger } from './core/StateLedger';
@@ -17,6 +17,9 @@ import { DualRaceView } from './components/race/DualRaceView';
 import { MetricsCollector } from './core/analytics';
 import { ComparativeScoreboard } from './components/analytics';
 import { AlgorithmEducationalInspector } from './components/education';
+import { MininetModal } from './components/mininet';
+import { mininetBridge } from './core/mininet/MininetBridgeClient';
+import { normalizeNodeId } from './core/animation/PingAnimationEngine';
 import { createDiamondMultiPath } from './core/presets';
 import { GraphSnapshot, NodeId, StateSnapshot } from './core/types';
 import {
@@ -31,6 +34,7 @@ import {
   BarChart2,
   BookOpen,
   Radio,
+  Terminal,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -61,8 +65,128 @@ export const App: React.FC = () => {
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [showEduInspector, setShowEduInspector] = useState(false);
   const [showPacketTracer, setShowPacketTracer] = useState(false);
+  const [showMininetModal, setShowMininetModal] = useState(false);
+  const [mininetConnected, setMininetConnected] = useState(false);
   const [activePresetName, setActivePresetName] = useState('Diamond Multi-Path');
   const [simVersion, setSimVersion] = useState(0);
+
+  // Ping Trigger Signal for Canvas Packet Animation
+  const [pingSignal, setPingSignal] = useState<{
+    sourceId: string;
+    destId: string;
+    timestamp: number;
+  } | null>(null);
+
+  const handleTriggerPing = useCallback((sourceId: string, destId: string) => {
+    setPingSignal({ sourceId, destId, timestamp: Date.now() });
+  }, []);
+
+  const processedEventsRef = useRef<Set<string>>(new Set());
+
+  // Poll Mininet Bridge server connection health & stream terminal-triggered action events
+  useEffect(() => {
+    let isMounted = true;
+    const checkBridge = async () => {
+      try {
+        const res = await mininetBridge.fetchStatus();
+        if (!isMounted) return;
+        setMininetConnected(res.online);
+
+        // Process live external events triggered from Terminal / Docker commands
+        if (res.online && res.recentEvents && res.recentEvents.length > 0) {
+          const allNodeIds = graph.getNodes().map((n) => n.id);
+          for (const evt of res.recentEvents) {
+            if (!processedEventsRef.current.has(evt.id)) {
+              processedEventsRef.current.add(evt.id);
+              // Only animate events that occurred within the last 25 seconds
+              if (Date.now() / 1000 - evt.timestamp < 25) {
+                if (evt.type === 'ping' && evt.src && evt.dst) {
+                  const normSrc = normalizeNodeId(evt.src, allNodeIds);
+                  const normDst = normalizeNodeId(evt.dst, allNodeIds);
+                  handleTriggerPing(normSrc, normDst);
+                } else if ((evt.type === 'link' || (evt.type === 'chaos' && evt.action === 'sever')) && evt.src && evt.dst) {
+                  const normSrc = normalizeNodeId(evt.src, allNodeIds);
+                  const normDst = normalizeNodeId(evt.dst, allNodeIds);
+                  const edge = graph.getEdgeBetween(normSrc, normDst);
+                  if (edge) {
+                    const shouldBeUp = evt.status?.toLowerCase() === 'up';
+                    if ((edge.status === 'UP') !== shouldBeUp) {
+                      graph.setEdgeStatus(edge.id, shouldBeUp ? 'UP' : 'DOWN');
+                    }
+                  }
+                } else if ((evt.type === 'crash' || (evt.type === 'chaos' && (evt.action === 'crash' || evt.action === 'recover'))) && (evt.node || evt.target)) {
+                  const rawNode = evt.node || evt.target;
+                  const normNode = normalizeNodeId(rawNode, allNodeIds);
+                  const node = graph.getNode(normNode);
+                  if (node) {
+                    const shouldBeActive = evt.status === 'ACTIVE' || evt.action === 'recover';
+                    if ((node.status === 'ACTIVE') !== shouldBeActive) {
+                      graph.setNodeStatus(normNode, shouldBeActive ? 'ACTIVE' : 'CRASHED');
+                    }
+                  }
+                } else if (evt.type === 'chaos' && evt.action === 'jitter' && evt.src && evt.dst && evt.cost !== undefined) {
+                  const normSrc = normalizeNodeId(evt.src, allNodeIds);
+                  const normDst = normalizeNodeId(evt.dst, allNodeIds);
+                  const edge = graph.getEdgeBetween(normSrc, normDst);
+                  if (edge) {
+                    graph.setEdgeCost(edge.id, evt.cost);
+                  }
+                } else if (evt.type === 'chaos' && evt.action === 'flap' && evt.src && evt.dst) {
+                  const normSrc = normalizeNodeId(evt.src, allNodeIds);
+                  const normDst = normalizeNodeId(evt.dst, allNodeIds);
+                  const edge = graph.getEdgeBetween(normSrc, normDst);
+                  if (edge) {
+                    graph.setEdgeStatus(edge.id, 'FLAPPING', evt.interval || 2);
+                  }
+                } else if (evt.type === 'protocol' && evt.protocol) {
+                  const proto = evt.protocol.toUpperCase();
+                  if ((proto === 'LSR' || proto === 'DVR') && proto !== protocolMode) {
+                    setProtocolMode(proto);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        if (isMounted) setMininetConnected(false);
+      }
+    };
+    checkBridge();
+    const interval = setInterval(checkBridge, 1200);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [graph, handleTriggerPing, protocolMode]);
+
+  // Synchronize active routing protocol to Mininet backend
+  useEffect(() => {
+    if (mininetConnected) {
+      mininetBridge.switchProtocol(protocolMode);
+    }
+  }, [protocolMode, mininetConnected]);
+
+  // Synchronize canvas link state changes (sever/restore) to Mininet kernel interfaces
+  useEffect(() => {
+    if (!mininetConnected) return;
+    const prevEdgeStates = new Map<string, string>();
+    graph.getEdges().forEach((e) => prevEdgeStates.set(e.id, e.status));
+
+    return graph.subscribe(() => {
+      const currentEdges = graph.getEdges();
+      for (const e of currentEdges) {
+        const prev = prevEdgeStates.get(e.id);
+        if (prev && prev !== e.status) {
+          prevEdgeStates.set(e.id, e.status);
+          const isUp = e.status === 'UP';
+          mininetBridge.setLinkStatus(e.source, e.target, isUp ? 'up' : 'down');
+        } else if (!prev) {
+          prevEdgeStates.set(e.id, e.status);
+        }
+      }
+    });
+  }, [graph, mininetConnected]);
 
   const packetTracer = useMemo(() => {
     return new PacketTracer(graph, (nodeId) => {
@@ -203,6 +327,7 @@ export const App: React.FC = () => {
     metricsCollector.sampleTick(0, 'Simulation Initialized');
     captureSnapshot(0, 'Simulation Initialized', true);
     setSimVersion((v) => v + 1);
+    mininetBridge.syncTopology(activePresetName, graph.getNodes(), graph.getEdges());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -233,6 +358,9 @@ export const App: React.FC = () => {
     } else {
       setSelectedNodeId(null);
     }
+
+    // Inform Mininet Bridge of the newly activated dashboard topology
+    mininetBridge.syncTopology(presetName, snapshot.nodes, snapshot.edges);
   };
 
   // Full reset simulation handler
@@ -366,6 +494,33 @@ export const App: React.FC = () => {
 
         {/* Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Mininet Bridge / Export Button */}
+          <button
+            className={`btn ${mininetConnected ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowMininetModal(true)}
+            style={{
+              fontSize: '12px',
+              padding: '6px 12px',
+              gap: '6px',
+              border: mininetConnected ? '1px solid var(--accent-emerald)' : '1px solid var(--border-strong)',
+            }}
+            title="Mininet L3 Linux Emulation & Python Script Generator"
+          >
+            <Terminal size={14} color={mininetConnected ? '#fff' : 'var(--accent-blue)'} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: mininetConnected ? '#4ADE80' : 'var(--text-muted)',
+                  boxShadow: mininetConnected ? '0 0 8px #4ADE80' : 'none',
+                }}
+              />
+              Mininet
+            </span>
+          </button>
+
           <button
             className={`btn ${showPacketTracer ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowPacketTracer(!showPacketTracer)}
@@ -448,6 +603,9 @@ export const App: React.FC = () => {
               inFlightLSPs={protocolMode === 'LSR' ? lsrEngine.getInFlightPackets() : []}
               inFlightDVMessages={protocolMode === 'DVR' ? dvrEngine.getInFlightMessages() : []}
               canvasTheme={protocolMode === 'LSR' ? 'lsr' : 'dvr'}
+              isChaosActive={chaosEngine.getConfig().enabled}
+              pingTriggerSignal={pingSignal}
+              onTriggerPing={handleTriggerPing}
             />
 
             {/* Live Packet Tracer Control Bar (Floats cleanly when toggled) */}
@@ -458,6 +616,8 @@ export const App: React.FC = () => {
                 currentTick={currentTick}
                 onSendPing={handleStepTick}
                 onClose={() => setShowPacketTracer(false)}
+                mininetConnected={mininetConnected}
+                onTriggerPing={handleTriggerPing}
               />
             )}
           </>
@@ -471,6 +631,11 @@ export const App: React.FC = () => {
             onSelectNode={setSelectedNodeId}
             onStepTick={handleStepTick}
             onOpenScoreboard={() => setShowScoreboard(true)}
+            onBroadcast={handleBroadcast}
+            isChaosActive={chaosEngine.getConfig().enabled}
+            activeTracePackets={packetTracer.getActivePackets()}
+            pingTriggerSignal={pingSignal}
+            onTriggerPing={handleTriggerPing}
           />
         )}
 
@@ -618,6 +783,16 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Mininet L3 Emulation Bridge Modal */}
+        <MininetModal
+          isOpen={showMininetModal}
+          onClose={() => setShowMininetModal(false)}
+          nodes={graph.getNodes()}
+          edges={graph.getEdges()}
+          activeProtocol={protocolMode}
+          onTriggerPingAnimation={handleTriggerPing}
+        />
       </main>
     </div>
   );

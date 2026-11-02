@@ -8,3 +8,5 @@ export * from './presets';
 export * from './chaos';
 export * from './tracer';
 export * from './analytics';
+export * from './mininet/mininetTypes';
+export * from './mininet/MininetBridgeClient';

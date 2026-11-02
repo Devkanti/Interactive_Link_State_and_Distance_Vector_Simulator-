@@ -3,6 +3,7 @@ import { NetworkGraph } from '../../core/NetworkGraph';
 import { LinkStateEngine } from '../../core/lsr/LinkStateEngine';
 import { DistanceVectorEngine } from '../../core/dvr/DistanceVectorEngine';
 import { NodeId } from '../../core/types';
+import { TracePacket } from '../../core/tracer/types';
 import { TopologyCanvas } from '../canvas/TopologyCanvas';
 import {
   Activity,
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
   RotateCcw,
   BarChart2,
+  Send,
 } from 'lucide-react';
 
 export interface DualRaceViewProps {
@@ -25,6 +27,11 @@ export interface DualRaceViewProps {
   onSelectNode: (nodeId: NodeId | null) => void;
   onStepTick: () => void;
   onOpenScoreboard?: () => void;
+  onBroadcast?: () => void;
+  isChaosActive?: boolean;
+  activeTracePackets?: TracePacket[];
+  pingTriggerSignal?: { sourceId: string; destId: string; timestamp: number } | null;
+  onTriggerPing?: (sourceId: string, destId: string) => void;
 }
 
 export const DualRaceView: React.FC<DualRaceViewProps> = ({
@@ -36,6 +43,11 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
   onSelectNode,
   onStepTick,
   onOpenScoreboard,
+  onBroadcast,
+  isChaosActive = false,
+  activeTracePackets = [],
+  pingTriggerSignal = null,
+  onTriggerPing,
 }) => {
   // Subscribe to graph updates so both views re-render when nodes/edges mutate
   const [, setVersion] = useState(0);
@@ -52,6 +64,28 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
 
   const isLsrConverged = lsrMetrics.isConverged;
   const isDvrConverged = dvrMetrics.isStable;
+
+  // Race broadcast / flood: originates LSPs on LSR and advertises vectors on DVR
+  const handleRaceBroadcast = () => {
+    lsrEngine.originateAll(currentTick);
+    dvrEngine.advertiseAll(currentTick);
+    if (onBroadcast) {
+      onBroadcast();
+    } else {
+      onStepTick();
+    }
+  };
+
+  // Dispatches an ICMP Ping on both engines simultaneously
+  const handleRacePing = () => {
+    const nodes = graph.getNodes();
+    if (nodes.length < 2) return;
+    const src = nodes[0].id;
+    const dst = nodes[nodes.length - 1].id;
+    if (onTriggerPing) {
+      onTriggerPing(src, dst);
+    }
+  };
 
   // Quick failure injection for race testing
   const handleSeverRandomLink = () => {
@@ -102,7 +136,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           borderRight: 'none',
           borderTop: 'none',
           zIndex: 40,
-          background: 'rgba(255, 255, 255, 0.88)',
+          background: 'rgba(255, 255, 255, 0.92)',
         }}
       >
         {/* Left Side: LSR Live Summary */}
@@ -137,8 +171,8 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           </span>
         </div>
 
-        {/* Center: Race Banner & Chaos Triggers */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Center: Race Controls & Failure Triggers */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div
             style={{
               fontSize: '12px',
@@ -164,13 +198,41 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
 
           <div style={{ width: 1, height: 18, background: 'var(--border-subtle)' }} />
 
+          {/* Race Flood & Exchange Button */}
+          <button
+            className="btn btn-primary"
+            onClick={handleRaceBroadcast}
+            style={{ fontSize: '11px', padding: '4px 10px', gap: '4px' }}
+            title="Flood LSPs on Left (LSR) and Exchange Vectors on Right (DVR) simultaneously"
+          >
+            <Zap size={12} /> Flood & Race
+          </button>
+
+          {/* Race Ping Button */}
           <button
             className="btn btn-secondary"
+            onClick={handleRacePing}
+            style={{
+              fontSize: '11px',
+              padding: '4px 10px',
+              gap: '4px',
+              border: '1px solid rgba(0, 242, 254, 0.4)',
+              background: 'rgba(0, 242, 254, 0.08)',
+              color: 'var(--accent-cyan)',
+            }}
+            title="Dispatch ICMP Ping packet on both engines simultaneously to compare paths"
+          >
+            <Send size={12} color="var(--accent-cyan)" /> Race Ping (A ➔ D)
+          </button>
+
+          {/* Sever Link & Race Button */}
+          <button
+            className="btn btn-danger"
             onClick={handleSeverRandomLink}
-            style={{ fontSize: '11px', padding: '4px 10px' }}
+            style={{ fontSize: '11px', padding: '4px 10px', gap: '4px' }}
             title="Randomly sever an operational link to observe convergence race"
           >
-            <Flame size={12} color="var(--accent-rose)" /> Sever Link & Race
+            <Flame size={12} color="#fff" /> Sever & Race
           </button>
 
           <button
@@ -184,7 +246,7 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
 
           {onOpenScoreboard && (
             <button
-              className="btn btn-primary"
+              className="btn btn-secondary"
               onClick={onOpenScoreboard}
               style={{ fontSize: '11px', padding: '4px 10px' }}
               title="Open Comparative Metrics Scoreboard"
@@ -252,8 +314,8 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               left: 16,
               zIndex: 30,
               pointerEvents: 'none',
-              background: 'rgba(255, 255, 255, 0.88)',
-              padding: '6px 12px',
+              background: 'rgba(255, 255, 255, 0.92)',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-md)',
               border: '1px solid rgba(59, 139, 235, 0.35)',
               backdropFilter: 'blur(8px)',
@@ -269,16 +331,21 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           </div>
 
           <TopologyCanvas
+            key="dual-canvas-lsr"
             graph={graph}
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             inFlightLSPs={inFlightLSPs}
+            activeTracePackets={activeTracePackets}
             canvasTheme="lsr"
+            isChaosActive={isChaosActive}
+            pingTriggerSignal={pingTriggerSignal}
+            onTriggerPing={onTriggerPing}
             showControls={false}
           />
         </div>
 
-        {/* High-Tech Glowing Center Divider Marker */}
+        {/* Center Divider Marker */}
         <div
           style={{
             position: 'absolute',
@@ -317,8 +384,8 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
               left: 16,
               zIndex: 30,
               pointerEvents: 'none',
-              background: 'rgba(255, 255, 255, 0.88)',
-              padding: '6px 12px',
+              background: 'rgba(255, 255, 255, 0.92)',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-md)',
               border: '1px solid rgba(232, 122, 80, 0.35)',
               backdropFilter: 'blur(8px)',
@@ -334,11 +401,16 @@ export const DualRaceView: React.FC<DualRaceViewProps> = ({
           </div>
 
           <TopologyCanvas
+            key="dual-canvas-dvr"
             graph={graph}
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             inFlightDVMessages={inFlightDVs}
+            activeTracePackets={activeTracePackets}
             canvasTheme="dvr"
+            isChaosActive={isChaosActive}
+            pingTriggerSignal={pingTriggerSignal}
+            onTriggerPing={onTriggerPing}
             showControls={false}
           />
         </div>

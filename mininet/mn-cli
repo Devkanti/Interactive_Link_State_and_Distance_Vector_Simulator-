@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""
+mn-cli: Simple, Friendly Command-Line Interface for Mininet & Routing Simulator
+==============================================================================
+Easy commands for testing, pinging, breaking links, and inspecting routing tables.
+"""
+
+import sys
+import json
+import urllib.request
+import urllib.error
+
+ENDPOINT = "http://localhost:8080"
+
+# ANSI Colors for terminal output
+BOLD = "\033[1m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+MAGENTA = "\033[95m"
+RESET = "\033[0m"
+
+def http_get(path):
+    try:
+        req = urllib.request.Request(f"{ENDPOINT}{path}", headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"{RED}[Error]{RESET} Failed connecting to bridge: {e}")
+        return None
+
+def http_post(path, data):
+    try:
+        body = json.dumps(data).encode("utf-8")
+        req = urllib.request.Request(
+            f"{ENDPOINT}{path}",
+            data=body,
+            headers={"Content-Type": "application/json", "Accept": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"{RED}[Error]{RESET} Failed sending command: {e}")
+        return None
+
+def show_help():
+    print(f"""
+{CYAN}{BOLD}========================================================================={RESET}
+{YELLOW}{BOLD}              MININET SIMPLE COMMANDS (CHEAT SHEET)                      {RESET}
+{CYAN}{BOLD}========================================================================={RESET}
+
+{BOLD}1. DIAGNOSTICS & PING:{RESET}
+  {GREEN}mn-cli ping <src> <dst>{RESET}       Send ICMP Echo Ping between routers
+                                Example: {BOLD}mn-cli ping r1 r4{RESET} (or A D)
+                                {MAGENTA}Canvas effect: Glowing packet glides across screen!{RESET}
+
+  {GREEN}mn-cli routes{RESET}                 Show real routing tables for all routers
+                                Displays Destination, Next Hop, Interface, Cost
+
+  {GREEN}mn-cli status{RESET}                 Show all routers and links (UP/DOWN, costs)
+
+{BOLD}2. CHAOS FAULTS & LINK SEVERING:{RESET}
+  {GREEN}mn-cli sever <src> <dst>{RESET}      Cut a link between two routers
+                                Example: {BOLD}mn-cli sever r1 r2{RESET} (or A B)
+                                {MAGENTA}Canvas effect: Red electric laser strike!{RESET}
+
+  {GREEN}mn-cli restore [src] [dst]{RESET}    Restore a link (or all links) back to UP
+                                Example: {BOLD}mn-cli restore r1 r2{RESET}
+                                Example: {BOLD}mn-cli restore{RESET} (restores everything)
+
+  {GREEN}mn-cli crash <router>{RESET}          Crash a router node completely
+                                Example: {BOLD}mn-cli crash r2{RESET} (or B)
+                                {MAGENTA}Canvas effect: Fiery explosion shockwave!{RESET}
+
+  {GREEN}mn-cli recover <router>{RESET}        Bring a crashed router back online
+                                Example: {BOLD}mn-cli recover r2{RESET}
+
+  {GREEN}mn-cli jitter <src> <dst> <cost>{RESET} Spike link cost
+                                Example: {BOLD}mn-cli jitter r1 r3 9{RESET}
+
+  {GREEN}mn-cli flap <src> <dst>{RESET}        Make a link flap rapidly
+                                Example: {BOLD}mn-cli flap r3 r4{RESET}
+
+{BOLD}3. PROTOCOL SWITCHING:{RESET}
+  {GREEN}mn-cli proto lsr{RESET}              Switch to Link State Routing (OSPF / Dijkstra)
+  {GREEN}mn-cli proto dvr{RESET}              Switch to Distance Vector (RIP / Bellman-Ford)
+
+{CYAN}{BOLD}========================================================================={RESET}
+""")
+
+def cmd_ping(args):
+    src = args[0] if len(args) > 0 else "r1"
+    dst = args[1] if len(args) > 1 else "r4"
+    print(f"{CYAN}[*] Sending ICMP Echo Ping: Router [{src.upper()}] ➔ Router [{dst.upper()}]...{RESET}")
+    res = http_post("/api/ping", {"src": src, "dst": dst})
+    if not res:
+        return
+    success = res.get("success", False)
+    output = res.get("output", "")
+    if success:
+        print(f"{GREEN}{BOLD}[✔ SUCCESS]{RESET} ICMP Reply received from {dst.upper()}!")
+        for line in output.strip().splitlines():
+            if "bytes from" in line or "packet loss" in line or "rtt" in line:
+                print(f"    {line}")
+        print(f"{MAGENTA}>>> Watch dashboard: glowing packet gliding on canvas!{RESET}")
+    else:
+        print(f"{RED}{BOLD}[✘ FAILED]{RESET} Destination unreachable or 100% packet loss.")
+        for line in output.strip().splitlines():
+            print(f"    {line}")
+
+def cmd_routes():
+    print(f"{CYAN}[*] Fetching live Linux kernel routing tables...{RESET}\n")
+    data = http_get("/api/routes")
+    if not data:
+        return
+    routes_map = data.get("routes", data)
+    
+    # Filter for standard router names (r1, r2, r3, r4 or uppercase single letters)
+    printed = set()
+    for name, rlist in sorted(routes_map.items()):
+        if name in printed:
+            continue
+        # Only print clean router keys (e.g. 'r1', 'r2' or 'Router A')
+        if not (name.startswith("r") and name[1:].isdigit()) and not name.startswith("Router"):
+            continue
+        printed.add(name)
+        if isinstance(rlist, list) and rlist:
+            print(f"{YELLOW}{BOLD}Routing Table for {name.upper()}:{RESET}")
+            print(f"  {'Destination':<18} {'Next Hop / Gateway':<22} {'Interface':<12} {'Cost':<6} {'Proto':<6}")
+            print(f"  {'-'*18} {'-'*22} {'-'*12} {'-'*6} {'-'*6}")
+            for r in rlist:
+                dst = r.get("dst") or r.get("destination") or "default"
+                gw = r.get("gateway") or r.get("nextHop") or "Direct (Link)"
+                dev = r.get("dev") or r.get("interface") or "eth0"
+                cost = str(r.get("cost") or r.get("metric") or 1)
+                proto = (r.get("protocol") or "kernel").upper()
+                print(f"  {dst:<18} {gw:<22} {dev:<12} {cost:<6} {proto:<6}")
+            print()
+
+def cmd_sever(args):
+    src = args[0] if len(args) > 0 else "r1"
+    dst = args[1] if len(args) > 1 else "r2"
+    print(f"{RED}[*] Cutting link between {src.upper()} and {dst.upper()}...{RESET}")
+    res = http_post("/api/chaos", {"action": "sever", "src": src, "dst": dst})
+    if res and res.get("success"):
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Link [{src.upper()} ⟷ {dst.upper()}] is now {RED}SEVERED (DOWN){RESET}.")
+        print(f"{MAGENTA}>>> Watch dashboard: Red electric laser strike & '⚡ SEVERED' badge!{RESET}")
+
+def cmd_restore(args):
+    if len(args) >= 2:
+        src, dst = args[0], args[1]
+        print(f"{GREEN}[*] Restoring link between {src.upper()} and {dst.upper()}...{RESET}")
+        res = http_post("/api/link", {"src": src, "dst": dst, "status": "up"})
+        if res and res.get("success"):
+            print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Link [{src.upper()} ⟷ {dst.upper()}] restored to {GREEN}UP{RESET}.")
+            print(f"{MAGENTA}>>> Watch dashboard: Emerald recovery pulse rings!{RESET}")
+    else:
+        print(f"{GREEN}[*] Restoring ALL routers and links to healthy state...{RESET}")
+        # Restore all links
+        for s, d in [("r1","r2"), ("r1","r3"), ("r2","r4"), ("r3","r4"), ("r2","r3")]:
+            http_post("/api/link", {"src": s, "dst": d, "status": "up"})
+        # Recover all routers
+        for node in ["r1", "r2", "r3", "r4", "r5", "r6", "Core1", "Core2"]:
+            http_post("/api/chaos", {"action": "recover", "node": node})
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} All network links and routers restored {GREEN}ONLINE{RESET}!")
+
+def cmd_crash(args):
+    node = args[0] if len(args) > 0 else "r2"
+    print(f"{RED}[*] Crashing router {node.upper()}...{RESET}")
+    res = http_post("/api/chaos", {"action": "crash", "node": node})
+    if res and res.get("success"):
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Router [{node.upper()}] is now {RED}CRASHED (OFFLINE){RESET}.")
+        print(f"{MAGENTA}>>> Watch dashboard: Fiery explosion shockwave rings!{RESET}")
+
+def cmd_recover(args):
+    node = args[0] if len(args) > 0 else "r2"
+    print(f"{GREEN}[*] Recovering router {node.upper()}...{RESET}")
+    res = http_post("/api/chaos", {"action": "recover", "node": node})
+    if res and res.get("success"):
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Router [{node.upper()}] is now {GREEN}ONLINE (ACTIVE){RESET}.")
+        print(f"{MAGENTA}>>> Watch dashboard: Emerald recovery wave!{RESET}")
+
+def cmd_jitter(args):
+    src = args[0] if len(args) > 0 else "r1"
+    dst = args[1] if len(args) > 1 else "r3"
+    cost = int(args[2]) if len(args) > 2 else 9
+    print(f"{YELLOW}[*] Perturbing cost of link {src.upper()} <-> {dst.upper()} to {cost}...{RESET}")
+    res = http_post("/api/chaos", {"action": "jitter", "src": src, "dst": dst, "cost": cost})
+    if res and res.get("success"):
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Link [{src.upper()} ⟷ {dst.upper()}] cost is now {YELLOW}{cost}{RESET}.")
+        print(f"{MAGENTA}>>> Watch dashboard: Floating flame pop badge!{RESET}")
+
+def cmd_flap(args):
+    src = args[0] if len(args) > 0 else "r3"
+    dst = args[1] if len(args) > 1 else "r4"
+    print(f"{YELLOW}[*] Injecting flapping storm on link {src.upper()} <-> {dst.upper()}...{RESET}")
+    res = http_post("/api/chaos", {"action": "flap", "src": src, "dst": dst, "interval": 2})
+    if res and res.get("success"):
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Link [{src.upper()} ⟷ {dst.upper()}] is now {YELLOW}FLAPPING{RESET}.")
+        print(f"{MAGENTA}>>> Watch dashboard: Pulsing amber caution hazard beam!{RESET}")
+
+def cmd_proto(args):
+    proto = args[0].upper() if len(args) > 0 else "LSR"
+    if proto not in ["LSR", "DVR"]:
+        print(f"{RED}[Error]{RESET} Choose either 'lsr' (OSPF) or 'dvr' (RIP).")
+        return
+    print(f"{CYAN}[*] Switching routing protocol to {proto}...{RESET}")
+    res = http_post("/api/protocol", {"protocol": proto})
+    if res and res.get("success"):
+        desc = "Link State Routing (OSPF / Dijkstra SPF)" if proto == "LSR" else "Distance Vector (RIP / Bellman-Ford)"
+        print(f"{GREEN}{BOLD}[✔ DONE]{RESET} Active protocol switched to {BOLD}{proto}{RESET}: {desc}")
+
+def cmd_status():
+    data = http_get("/api/status")
+    if not data:
+        return
+    print(f"{CYAN}{BOLD}========================================================================={RESET}")
+    print(f"{YELLOW}{BOLD}                       LIVE NETWORK STATUS                               {RESET}")
+    print(f"{CYAN}{BOLD}========================================================================={RESET}")
+    print(f"Emulation Engine : {GREEN}{data.get('engine', 'Mininet')}{RESET}")
+    print(f"Active Protocol  : {MAGENTA}{data.get('mode', 'LSR')}{RESET}")
+    print(f"Emulation State  : {GREEN}{data.get('status', 'online').upper()}{RESET}\n")
+
+    nodes = data.get("nodes", [])
+    if nodes:
+        print(f"{BOLD}Routers ({len(nodes)}):{RESET}")
+        for n in nodes:
+            st = n.get("status", "ACTIVE")
+            st_color = GREEN if st == "ACTIVE" else RED
+            print(f"  • {n.get('id').upper():<10} {n.get('label', ''):<16} Status: {st_color}{st}{RESET}")
+        print()
+
+    links = data.get("links", [])
+    if links:
+        print(f"{BOLD}Links ({len(links)}):{RESET}")
+        for l in links:
+            st = l.get("status", "UP")
+            st_color = GREEN if st == "UP" else RED
+            print(f"  • {l.get('source').upper()} ⟷ {l.get('target').upper():<6} Cost: {l.get('cost', 1):<4} Status: {st_color}{st}{RESET}")
+    print(f"{CYAN}{BOLD}========================================================================={RESET}\n")
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ["-h", "--help", "help"]:
+        show_help()
+        return
+
+    action = sys.argv[1].lower()
+    args = sys.argv[2:]
+
+    if action == "ping":
+        cmd_ping(args)
+    elif action in ["routes", "route", "table", "tables"]:
+        cmd_routes()
+    elif action in ["sever", "cut", "down"]:
+        cmd_sever(args)
+    elif action in ["restore", "up"]:
+        cmd_restore(args)
+    elif action in ["crash", "kill"]:
+        cmd_crash(args)
+    elif action in ["recover", "heal"]:
+        cmd_recover(args)
+    elif action in ["jitter", "cost"]:
+        cmd_jitter(args)
+    elif action == "flap":
+        cmd_flap(args)
+    elif action in ["proto", "protocol"]:
+        cmd_proto(args)
+    elif action in ["status", "stat", "info"]:
+        cmd_status()
+    else:
+        print(f"{RED}[Unknown Command]{RESET} '{action}'. Type {BOLD}mn-cli help{RESET} for list of commands.")
+
+if __name__ == "__main__":
+    main()
